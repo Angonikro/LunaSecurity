@@ -1,0 +1,29 @@
+#!/bin/sh
+# Beendet ausschließlich die von LunaSecurity gestartete AIDE-Prozessgruppe.
+set -u
+PIDFILE=/run/lunasecurity-aide.pgid
+[ "$(id -u)" -eq 0 ] || exit 1
+# Kurz auf die PID-Datei warten, falls der Abbruch direkt nach dem Start erfolgt.
+i=0
+while [ ! -r "$PIDFILE" ] && [ "$i" -lt 30 ]; do
+    sleep 0.1
+    i=$((i + 1))
+done
+[ -r "$PIDFILE" ] || exit 0
+IFS= read -r pgid < "$PIDFILE" || exit 0
+case "$pgid" in ''|*[!0-9]*) exit 1 ;; esac
+[ "$pgid" -gt 1 ] || exit 1
+# Sicherheitsprüfung: nur eine existierende Prozessgruppe mit der gespeicherten PGID.
+kill -TERM -"$pgid" 2>/dev/null || true
+# Bis zu 5 Sekunden auf das Ende der gesamten Gruppe warten.
+i=0
+while kill -0 -"$pgid" 2>/dev/null && [ "$i" -lt 50 ]; do
+    sleep 0.1
+    i=$((i + 1))
+done
+# Falls ein Debian-Hilfsskript oder Kindprozess hängt, Rest der Gruppe beenden.
+if kill -0 -"$pgid" 2>/dev/null; then
+    kill -KILL -"$pgid" 2>/dev/null || true
+fi
+rm -f "$PIDFILE"
+exit 0

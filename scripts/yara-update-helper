@@ -1,0 +1,88 @@
+#!/usr/bin/python3
+"""Lädt die freigegebenen YARA-Regeln aus Neo23x0/signature-base."""
+import os
+import shutil
+import sys
+import tarfile
+import tempfile
+import urllib.request
+from pathlib import Path
+
+URL = "https://codeload.github.com/Neo23x0/signature-base/tar.gz/refs/heads/master"
+DEST = Path("/etc/lunasecurity/yara-rules")
+MAX_DOWNLOAD = 80 * 1024 * 1024
+
+def main():
+    if os.geteuid() != 0:
+        print("Dieses Hilfsprogramm muss über pkexec gestartet werden.", file=sys.stderr)
+        return 2
+    request = urllib.request.Request(URL, headers={"User-Agent": "LunaSecurity-YARA-Updater/1.0"})
+    with tempfile.TemporaryDirectory(prefix="lunasecurity-yara-") as temp:
+        archive = Path(temp) / "rules.tar.gz"
+        with urllib.request.urlopen(request, timeout=60) as response, archive.open("wb") as output:
+            total = 0
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_DOWNLOAD:
+                    raise RuntimeError("Download überschreitet die erlaubte Größe von 80 MiB.")
+                output.write(chunk)
+
+        staging = Path(temp) / "rules"
+        staging.mkdir()
+        extracted = 0
+        with tarfile.open(archive, "r:gz") as bundle:
+            for member in bundle.getmembers():
+                name = member.name
+                if not member.isfile() or "/yara/" not in name or not name.lower().endswith((".yar", ".yara")):
+                    continue
+                # Nur reguläre YARA-Dateien aus dem vorgesehenen Quellordner übernehmen.
+                basename = Path(name).name
+                if not basename or basename.startswith("."):
+                    continue
+                source = bundle.extractfile(member)
+                if source is None:
+                    continue
+                data = source.read(2 * 1024 * 1024 + 1)
+                if len(data) > 2 * 1024 * 1024:
+                    continue
+                (staging / basename).write_bytes(data)
+                extracted += 1
+            for member in bundle.getmembers():
+                if member.isfile() and member.name.endswith("/LICENSE"):
+                    source = bundle.extractfile(member)
+                    if source:
+                        (staging / "SOURCE-LICENSE.txt").write_bytes(source.read(256 * 1024))
+                    break
+
+        if extracted == 0:
+            raise RuntimeError("Im heruntergeladenen Repository wurden keine YARA-Regeln gefunden.")
+
+        DEST.parent.mkdir(parents=True, exist_ok=True)
+        backup = DEST.with_name("yara-rules.previous")
+        if backup.exists():
+            shutil.rmtree(backup)
+        if DEST.exists():
+            DEST.rename(backup)
+        try:
+            staging.rename(DEST)
+        except Exception:
+            if backup.exists() and not DEST.exists():
+                backup.rename(DEST)
+            raise
+        if backup.exists():
+            shutil.rmtree(backup)
+        print(f"YARA-Regeln erfolgreich aktualisiert: {extracted} Dateien")
+        print(f"Quelle: {URL}")
+        print(f"Regelordner: {DEST}")
+        print("Quelle und Lizenz: Neo23x0/signature-base (siehe SOURCE-LICENSE.txt).")
+        return 0
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception as exc:
+        print(f"YARA-Aktualisierung fehlgeschlagen: {exc}", file=sys.stderr)
+        raise SystemExit(1)

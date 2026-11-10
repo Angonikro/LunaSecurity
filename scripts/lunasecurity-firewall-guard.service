@@ -1,0 +1,15 @@
+[Unit]
+Description=LunaSecurity dauerhaft gespeicherte Firewall-Regeln
+Documentation=man:nft(8)
+Wants=nftables.service
+After=nftables.service
+ConditionPathExists=/var/lib/lunasecurity/firewall-guard.nft
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /var/lib/lunasecurity/firewall-guard.nft
+ExecStop=/bin/sh -c '/usr/sbin/nft delete table inet lunasecurity_guard 2>/dev/null || true'
+
+[Install]
+WantedBy=multi-user.target

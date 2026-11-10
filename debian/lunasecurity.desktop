@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LunaSecurity
+Comment=Linux Security Suite
+Exec=lunasecurity
+Icon=lunasecurity
+Terminal=false
+Categories=System;Security;

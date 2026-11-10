@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+name="${1:-}"
+case "$name" in ''|*[!A-Za-z0-9_.+-]*) echo 'Ungültiger Sicherungsname.'; exit 2;; esac
+uid="${PKEXEC_UID:-}"
+case "$uid" in ''|*[!0-9]*) echo 'Benutzerkennung aus PolicyKit fehlt.'; exit 2;; esac
+home=$(getent passwd "$uid" | cut -d: -f6)
+base="$home/.local/share/LunaSecurity/repair-backups/packages"
+dir="$base/$name"
+[ -d "$dir" ] && [ -f "$dir/paths.txt" ] || { echo 'Sicherung nicht gefunden.'; exit 3; }
+while IFS= read -r path; do
+    case "$path" in /*) ;; *) continue;; esac
+    backup="$dir/files$path"
+    [ -f "$backup" ] || continue
+    [ ! -L "$path" ] || { echo "Ziel ist Symlink; Abbruch: $path"; exit 4; }
+    if [ -e "$path" ]; then cp -a -- "$path" "$path.lunasecurity-before-rollback"; fi
+    install -d "$(dirname "$path")"
+    cp -a -- "$backup" "$path"
+done < "$dir/paths.txt"
+echo "Gesicherte Paketdateien aus $name wurden zurückgespielt. Vorhandene Ziele wurden zusätzlich als *.lunasecurity-before-rollback gesichert."
+echo 'Paket-Skripte und externe Seiteneffekte werden nicht zurückgerollt.'

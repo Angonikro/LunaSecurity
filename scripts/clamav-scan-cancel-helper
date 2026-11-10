@@ -1,0 +1,18 @@
+#!/bin/sh
+# Privilegierter Abbruch des von LunaSecurity gestarteten Systemscans.
+set -u
+PIDFILE=/run/lunasecurity-clamav-scan.pid
+[ -r "$PIDFILE" ] || exit 0
+pid=$(cat "$PIDFILE" 2>/dev/null || true)
+case "$pid" in
+    ''|*[!0-9]*) rm -f "$PIDFILE"; exit 0 ;;
+esac
+kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+i=0
+while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 4 ]; do
+    sleep 1
+    i=$((i + 1))
+done
+kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+rm -f "$PIDFILE"
+exit 0

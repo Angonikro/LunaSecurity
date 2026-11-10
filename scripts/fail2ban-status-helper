@@ -1,0 +1,16 @@
+#!/bin/sh
+# Read-only fail2ban status query, called once through pkexec.
+set -u
+CLIENT=$(command -v fail2ban-client) || {
+    echo "fail2ban-client ist nicht installiert." >&2
+    exit 127
+}
+echo "fail2ban-Verbindung:"
+"$CLIENT" ping 2>&1 || exit $?
+echo
+echo "Gesamtstatus:"
+"$CLIENT" status 2>&1 || exit $?
+echo
+echo "SSH-Jail:"
+"$CLIENT" status sshd 2>&1
+exit $?

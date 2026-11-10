@@ -1,0 +1,128 @@
+#!/bin/sh
+# Read-only network audit plus narrowly scoped, reversible LunaSecurity guard actions.
+set +e
+
+if [ "${1:-}" = "block-port" ]; then
+    proto="${2:-}"
+    port="${3:-}"
+    case "$proto" in tcp|udp) ;; *) echo "Ungültiges Protokoll."; exit 2;; esac
+    case "$port" in ''|*[!0-9]*) echo "Ungültiger Port."; exit 2;; esac
+    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ] || [ "$port" -eq 22 ]; then
+        echo "Port außerhalb des erlaubten Bereichs oder SSH-Port 22."; exit 2
+    fi
+    command -v nft >/dev/null 2>&1 || { echo "nftables ist nicht installiert."; exit 3; }
+    # Sicherung des aktuellen Regelsatzes, ohne vorhandene Regeln zu verändern.
+    backup_dir=/var/lib/lunasecurity
+    install -d -m 0700 "$backup_dir" || exit 4
+    backup="$backup_dir/firewall-backup-$(date -u +%Y%m%dT%H%M%SZ).nft"
+    nft list ruleset > "$backup" || { rm -f "$backup"; echo "Sicherung fehlgeschlagen; keine Änderung vorgenommen."; exit 5; }
+    chmod 0600 "$backup"
+    if ! nft list table inet lunasecurity_guard >/dev/null 2>&1; then
+        nft add table inet lunasecurity_guard || exit 6
+        nft 'add chain inet lunasecurity_guard input { type filter hook input priority -10; policy accept; }' || {
+            nft delete table inet lunasecurity_guard >/dev/null 2>&1
+            echo "Eigene Firewall-Kette konnte nicht angelegt werden."; exit 7
+        }
+    fi
+    if nft list chain inet lunasecurity_guard input 2>/dev/null | grep -Eq "$proto dport $port drop"; then
+        echo "Port $port/$proto ist durch LunaSecurity bereits gesperrt. Sicherung: $backup"
+        exit 0
+    fi
+    nft add rule inet lunasecurity_guard input "$proto" dport "$port" drop || {
+        echo "Regel konnte nicht hinzugefügt werden."; exit 8
+    }
+    echo "Port $port/$proto wird jetzt durch eine eigene, temporäre LunaSecurity-Regel blockiert."
+    echo "Vorherige Konfiguration gesichert: $backup"
+    echo "Rückgängig: in LunaSecurity 'LunaSecurity-Sperren aufheben' wählen."
+    exit 0
+fi
+
+if [ "${1:-}" = "persist" ]; then
+    command -v nft >/dev/null 2>&1 || { echo "nftables ist nicht installiert."; exit 3; }
+    command -v systemctl >/dev/null 2>&1 || { echo "systemd/systemctl ist nicht verfügbar."; exit 3; }
+    unit=/usr/lib/systemd/system/lunasecurity-firewall-guard.service
+    [ -r "$unit" ] || { echo "Der LunaSecurity-Firewall-Dienst fehlt. Bitte Paket neu installieren."; exit 4; }
+    nft list table inet lunasecurity_guard >/dev/null 2>&1 || {
+        echo "Es gibt keine aktiven LunaSecurity-Testregeln zum Speichern."; exit 5;
+    }
+    state_dir=/var/lib/lunasecurity
+    install -d -m 0700 "$state_dir" || exit 6
+    backup="$state_dir/firewall-backup-$(date -u +%Y%m%dT%H%M%SZ).nft"
+    nft list ruleset > "$backup" || { rm -f "$backup"; echo "Sicherung fehlgeschlagen."; exit 7; }
+    chmod 0600 "$backup"
+    tmp="$state_dir/firewall-guard.nft.tmp"
+    nft list table inet lunasecurity_guard > "$tmp" || { rm -f "$tmp"; echo "Testregeln konnten nicht gelesen werden."; exit 8; }
+    chmod 0600 "$tmp"
+    mv -f "$tmp" "$state_dir/firewall-guard.nft" || exit 9
+    systemctl daemon-reload || exit 10
+    if systemctl is-active --quiet lunasecurity-firewall-guard.service; then
+        systemctl restart lunasecurity-firewall-guard.service || {
+            echo "Dauerhafter Dienst konnte nicht neu gestartet werden. Die gespeicherte Regeldatei liegt unter $state_dir/firewall-guard.nft."
+            exit 11
+        }
+        systemctl enable lunasecurity-firewall-guard.service >/dev/null 2>&1
+    else
+        systemctl enable --now lunasecurity-firewall-guard.service || {
+            echo "Dauerhafte Aktivierung fehlgeschlagen. Die Regeldatei liegt unter $state_dir/firewall-guard.nft; bitte Status prüfen."
+            exit 12
+        }
+    fi
+    echo "Die aktuellen LunaSecurity-Testregeln wurden dauerhaft gespeichert."
+    echo "Sie werden künftig beim Systemstart nach nftables geladen."
+    echo "Sicherung der vorherigen Firewall-Konfiguration: $backup"
+    echo "Rückgängig ist jederzeit über 'LunaSecurity-Sperren aufheben' möglich."
+    exit 0
+fi
+
+if [ "${1:-}" = "rollback" ]; then
+    command -v nft >/dev/null 2>&1 || { echo "nftables ist nicht installiert."; exit 3; }
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl disable --now lunasecurity-firewall-guard.service >/dev/null 2>&1
+        systemctl daemon-reload >/dev/null 2>&1
+    fi
+    rm -f /var/lib/lunasecurity/firewall-guard.nft /var/lib/lunasecurity/firewall-guard.nft.tmp
+    if nft list table inet lunasecurity_guard >/dev/null 2>&1; then
+        nft delete table inet lunasecurity_guard || exit 9
+        echo "Alle von LunaSecurity angelegten Firewall-Sperren wurden entfernt."
+    else
+        echo "Es waren keine aktiven LunaSecurity-Port-Sperren vorhanden."
+    fi
+    echo "Auch die automatische Wiederherstellung beim Systemstart wurde deaktiviert."
+    echo "Andere Firewall-Regeln wurden nicht verändert."
+    exit 0
+fi
+
+printf '%s\n' '__LUNA_SS_BEGIN__'
+if command -v ss >/dev/null 2>&1; then
+    ss -tulpen 2>&1
+    ss_status=$?
+else
+    printf '%s\n' 'ss (iproute2) ist nicht installiert.'
+    ss_status=127
+fi
+printf '%s\n' '__LUNA_SS_END__' "__LUNA_SS_STATUS__=$ss_status"
+printf '%s\n' '__LUNA_NFT_BEGIN__'
+if command -v nft >/dev/null 2>&1; then
+    nft list ruleset 2>&1
+    nft_status=$?
+else
+    printf '%s\n' 'nft (nftables) ist nicht installiert.'
+    nft_status=127
+fi
+printf '%s\n' '__LUNA_NFT_END__' "__LUNA_NFT_STATUS__=$nft_status"
+# Return success when the helper completed; individual command statuses are reported above.
+# Additional read-only diagnostics: addresses, routes and DNS (IPv4 + IPv6).
+printf '%s\n' '__LUNA_ADDR_BEGIN__'
+if command -v ip >/dev/null 2>&1; then ip -brief address show 2>&1; else echo 'ip (iproute2) ist nicht installiert.'; fi
+printf '%s\n' '__LUNA_ADDR_END__'
+printf '%s\n' '__LUNA_ROUTE_BEGIN__'
+if command -v ip >/dev/null 2>&1; then
+    echo '[IPv4/alle Tabellen]'; ip route show table all 2>&1
+    echo '[IPv6/alle Tabellen]'; ip -6 route show table all 2>&1
+else echo 'ip (iproute2) ist nicht installiert.'; fi
+printf '%s\n' '__LUNA_ROUTE_END__'
+printf '%s\n' '__LUNA_DNS_BEGIN__'
+if command -v resolvectl >/dev/null 2>&1; then resolvectl status 2>&1
+elif [ -r /etc/resolv.conf ]; then cat /etc/resolv.conf
+else echo 'DNS-Konfiguration konnte nicht gelesen werden.'; fi
+printf '%s\n' '__LUNA_DNS_END__'

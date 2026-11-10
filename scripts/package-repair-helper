@@ -1,0 +1,40 @@
+#!/bin/sh
+# Eng begrenzte Paket-Reparatur: Sicherung der dpkg-Abweichungen, dann APT reinstall.
+set -eu
+pkg="${1:-}"
+case "$pkg" in ''|*[!A-Za-z0-9+.-]*) echo 'Ungültiger Paketname.'; exit 2;; esac
+command -v dpkg >/dev/null && command -v dpkg-query >/dev/null && command -v apt-get >/dev/null || { echo 'dpkg/apt-get fehlt.'; exit 3; }
+status=$(dpkg-query -W -f='${db:Status-Status}' "$pkg" 2>/dev/null || true)
+[ "$status" = installed ] || { echo "Paket $pkg ist nicht installiert."; exit 4; }
+# Sicherheitsprüfung direkt vor dem privilegierten Vorgang erneut ausführen.
+plan=$(apt-get -s install --reinstall --no-remove "$pkg" 2>&1) || { echo "$plan"; exit 5; }
+printf '%s\n' "$plan" | grep -q '^Remv ' && { echo 'APT würde Pakete entfernen; Reparatur verweigert.'; exit 6; }
+uid="${PKEXEC_UID:-}"
+case "$uid" in ''|*[!0-9]*) echo 'Benutzerkennung aus PolicyKit fehlt.'; exit 7;; esac
+home=$(getent passwd "$uid" | cut -d: -f6)
+[ -n "$home" ] && [ -d "$home" ] || { echo 'Benutzerverzeichnis konnte nicht ermittelt werden.'; exit 7; }
+base="$home/.local/share/LunaSecurity/repair-backups/packages"
+install -d -o "$uid" -g "$(id -gn "$uid")" -m 0700 "$base"
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+dir="$base/${pkg}_${stamp}"
+install -d -o "$uid" -g "$(id -gn "$uid")" -m 0700 "$dir/files"
+# Nur Dateien sichern, die dpkg für genau dieses Paket als abweichend meldet.
+dpkg --verify "$pkg" > "$dir/dpkg-verify.txt" 2>&1 || true
+: > "$dir/paths.txt"
+while read -r flags path rest; do
+    [ -n "${path:-}" ] || continue
+    case "$path" in /*) ;; *) continue;; esac
+    if [ -e "$path" ] && [ ! -L "$path" ] && [ -f "$path" ]; then
+        printf '%s\n' "$path" >> "$dir/paths.txt"
+        mkdir -p "$dir/files$(dirname "$path")"
+        cp -a -- "$path" "$dir/files$path"
+        chown -R "$uid:$(id -gn "$uid")" "$dir/files"
+    fi
+done < "$dir/dpkg-verify.txt"
+chown "$uid:$(id -gn "$uid")" "$dir" "$dir/dpkg-verify.txt" "$dir/paths.txt"
+chmod 0600 "$dir/dpkg-verify.txt" "$dir/paths.txt"
+echo "Sicherung angelegt: $dir"
+# --no-remove verhindert Paketentfernungen; keine globale Aktualisierung/Upgrade.
+DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall --no-remove -o Dpkg::Options::=--force-confold "$pkg"
+echo "Neuinstallation von $pkg abgeschlossen. Sicherung bleibt für manuelle Wiederherstellung erhalten: $dir"
+echo 'Hinweis: Die Sicherung enthält die zuvor abweichenden regulären Dateien. Paket-Skripte und externe Seiteneffekte lassen sich damit nicht vollständig zurückrollen.'
