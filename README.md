@@ -7,7 +7,7 @@ LunaSecurity bündelt verschiedene lokale Sicherheits- und Diagnosewerkzeuge in 
 
 LunaSecurity ist eine Bedienoberfläche für vorhandene Linux-Werkzeuge – kein Ersatz für ein vollständig verwaltetes Endpoint-Protection-System. Prüfungen und Schutzfunktionen haben unterschiedliche Voraussetzungen und Grenzen. Diese Dokumentation beschreibt, was die Anwendung tatsächlich ausführt und welche Schritte du selbst durchführen musst.
 
-![LunaSecurity](lunasecurity.png)
+![LunaSecurity](lunasecurity1.png)
 
 [Github Seite](https://github.com/Angonikro/LunaSecurity/)
 
