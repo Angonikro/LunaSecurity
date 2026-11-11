@@ -173,6 +173,12 @@ APP_EN_DIALOG_FIX = None
 EN_TRANSLATIONS = {'Sicherheitsübersicht für dein Linux-System': 'Security overview for your Linux system', 'Dateien / Ordner scannen': 'Scan files / folders', 'Home-Verzeichnis prüfen': 'Scan home directory', 'Eigenes Profil': 'Custom profile', 'Schnellscan': 'Quick scan', 'Komplettscan': 'Full scan', 'Vor jedem Scan automatisch Virensignaturen mit freshclam aktualisieren': 'Automatically update virus signatures with freshclam before each scan', 'Virensignatur aktualisieren': 'Update virus signatures', 'Systemscan': 'System scan', 'Echtzeitschutz aktivieren': 'Enable real-time protection', 'Echtzeitschutz deaktivieren': 'Disable real-time protection', 'Echtzeitschutz: Status wird geprüft …': 'Real-time protection: checking status …', 'Beim Schließen im Infobereich weiterlaufen': 'Keep running in the system tray when closed', 'Beim Start direkt im Infobereich starten': 'Start directly in the system tray', 'LunaSecurity automatisch bei der Anmeldung starten': 'Start LunaSecurity automatically at login', 'Erweiterte Sicherheit': 'Advanced security', 'Sicherheitsereignisse': 'Security events', '⚠ {count} gespeicherte Sicherheitsereignisse – Details im Tab „Virenschutz“': '⚠ {count} saved security events – see the “Virus protection” tab', 'Quarantäne': 'Quarantine', 'Systemschutz': 'System protection', 'Reparatur & Wiederherstellung': 'Repair & recovery', 'Netzwerk': 'Network', 'Dateiwerkzeuge': 'File tools', 'Alarm & Audio': 'Alerts & audio', 'Einstellungen': 'Settings', 'Allgemeine Programmoptionen': 'General application options', 'ClamAV – Scanoptionen': 'ClamAV – scan options', 'Diese Optionen werden bei Datei- und Ordnerscans an ClamAV übergeben.': 'These options are passed to ClamAV during file and folder scans.', 'Potenziell unerwünschte Programme (PUP) erkennen': 'Detect potentially unwanted programs (PUPs)', 'Heuristische Erkennung verwenden': 'Use heuristic detection', 'Versteckte Dateien und Ordner untersuchen': 'Scan hidden files and folders', 'Dateien größer als 20 MB untersuchen (bis 2 GB)': 'Scan files larger than 20 MB (up to 2 GB)', 'Unterordner rekursiv durchsuchen': 'Scan subfolders recursively', 'Hier findest du alle aktivierbaren Optionen der Hauptoberfläche.': 'Here you can find all configurable options for the main interface.', 'Akustischen Alarm aktivieren': 'Enable audible alarm', 'WAV auswählen': 'Select WAV', 'Eingebauten Sound verwenden': 'Use built-in sound', 'Testalarm abspielen': 'Play test alarm', 'Audio-Ausgabe': 'Audio output', 'Ausgabegerät': 'Output device', 'Lautstärke': 'Volume', 'Datei auswählen und in Quarantäne verschieben': 'Select file and move to quarantine', 'Quarantäne anzeigen': 'Show quarantine', 'YARA-Regeln aktualisieren': 'Update YARA rules', 'Dashboard aktualisieren': 'Refresh dashboard', 'Bericht kopieren': 'Copy report', 'Vollständige Scanner-Ausgabe': 'Full scanner output', 'Empfohlene nächste Schritte': 'Recommended next steps', 'Liste aktualisieren': 'Refresh list', 'Sichern & deaktivieren': 'Back up & disable', 'Eintrag wiederherstellen': 'Restore entry', 'Paket sichern & reparieren': 'Back up & repair package', 'Gesicherte Paketdateien wiederherstellen': 'Restore backed-up package files', 'Installierte Pakete auf Dateiänderungen prüfen': 'Check installed packages for file changes', 'Datei endgültig löschen': 'Delete file permanently', 'In Quarantäne verschieben': 'Move to quarantine', 'Alarm bei erkannten Bedrohungen': 'Alert when threats are detected', 'Rootkit-Prüfung starten (rkhunter + chkrootkit)': 'Run rootkit check (rkhunter + chkrootkit)', 'Systemintegrität prüfen (AIDE)': 'Check system integrity (AIDE)', 'System-Audit (Autostart, Dienste, Cron, SSH)': 'System audit (autostart, services, cron, SSH)', 'Benutzer-Autostart': 'User autostart', 'Paket neu installieren': 'Reinstall package', 'Schließen': 'Close', 'Wiederherstellen': 'Restore', 'Prüfung abbrechen': 'Cancel check', 'Scan abbrechen': 'Cancel scan', 'Ergebnis kopieren': 'Copy result', 'Scan-Protokoll': 'Scan log', 'Verstrichene Zeit: 00:00': 'Elapsed time: 00:00', '● Aktiv': '● Active', 'Prüfung wird vorbereitet …': 'Preparing check …', 'ClamAV-Scan läuft': 'ClamAV scan running', 'Keine Paketsicherungen gefunden.': 'No package backups found.'}
 
 EN_TRANSLATIONS.update({
+    "Echtzeitschutz – Bedrohung erkannt": "Real-time protection – Threat detected",
+    "LunaSecurity – Echtzeitschutz: Bedrohung erkannt": "LunaSecurity – Real-time protection: Threat detected",
+    "Der Echtzeitschutz hat eine Bedrohung gefunden": "Real-time protection detected a threat",
+    "Bedrohung erkannt – Details stehen im Prüfbericht.": "Threat detected – see the scan report for details.",
+})
+EN_TRANSLATIONS.update({
     'Installierte Virensignaturen:': 'Installed virus signatures:',
     'Echtzeitschutz:': 'Real-time protection:',
     'Echtzeitschutz: Hintergrundauftrag läuft …': 'Real-time protection: background task running …',
@@ -1192,6 +1198,20 @@ class ClamScanMonitor(QDialog):
                     summary_lines.append(line)
             if summary_lines:
                 self.log.append("\n" + "\n".join(summary_lines[-20:]))
+            # Am Ende des Scanfensters die vollständigen Fundpfade gesammelt
+            # anzeigen – parallel zur Fundliste im Haupt-Protokollfeld.
+            found_paths = []
+            for raw in str(result).splitlines():
+                line = raw.strip()
+                if line.endswith("FOUND") or " FOUND " in line:
+                    found_path = sec.detection_path(line)
+                    if found_path and found_path not in found_paths:
+                        found_paths.append(found_path)
+            if found_paths:
+                self.log.append("\nGefundene Datei(en):")
+                for found_path in found_paths:
+                    self.log.append("Datei: " + found_path)
+
             summary = re.search(r"Scanned files:\s*(\d+)", str(result), re.IGNORECASE)
             if summary:
                 self.checked = int(summary.group(1))
@@ -2011,6 +2031,11 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self,"LunaSecurity",f"Pfad nicht gefunden: {target}"); return
             target_label = target
 
+        # Ein neuer Scan ist eine neue Erkennungssitzung. Pfade, deren alte
+        # Funde zuvor bereinigt wurden, dürfen bei einem erneuten Fund wieder
+        # als Sicherheitsereignis gespeichert und gemeldet werden.
+        self._resolved_detection_paths = set()
+
         # Klare Regel für Ordner-Scans:
         # Alles innerhalb des persönlichen Home-Verzeichnisses läuft ohne Root.
         # Jeder andere Ordner bietet Root-Rechte an – unabhängig davon, ob
@@ -2086,6 +2111,9 @@ class MainWindow(QMainWindow):
         if full_scan:
             # Home-Scan umfasst auch versteckte Dateien und alle Unterordner.
             scan_options.update({"hidden_files": True, "recursive": True})
+        # ClamOnAcc can log file accesses caused by an intentional manual scan.
+        # Suppress those mirrored on-access lines; the scan report handles them.
+        self._manual_scan_realtime_suppressed_until = time.monotonic() + 5
         self.scan_monitor = ClamScanMonitor(target_label, self, cancel_callback=self.cancel_scan)
         self.scan_monitor.show()
         self.worker=ScanWorker(target, update_signatures=self.auto_update_check.isChecked(), scan_options=scan_options, elevated=elevated)
@@ -2273,6 +2301,49 @@ class MainWindow(QMainWindow):
         if not success:
             self.log.append("Hinweis: Der Dienststatus konnte nicht sicher bestätigt werden.")
 
+    def _suppress_quarantine_move_alert(self, path):
+        """Unterdrückt den ClamOnAcc-Event, der allein durch das Wegverschieben entsteht."""
+        normalized = str(Path(path).expanduser().resolve(strict=False))
+        if not hasattr(self, "_quarantine_move_suppressed_paths"):
+            self._quarantine_move_suppressed_paths = set()
+        self._quarantine_move_suppressed_paths.add(normalized)
+        QTimer.singleShot(
+            10000,
+            lambda value=normalized: self._quarantine_move_suppressed_paths.discard(value)
+            if hasattr(self, "_quarantine_move_suppressed_paths") else None
+        )
+
+    def show_realtime_detection_window(self, output):
+        """Zeigt neue Echtzeitfunde im gemeinsamen Prüfungsfenster."""
+        title = "Echtzeitschutz – Bedrohung erkannt"
+        dialog = ModuleProgressDialog(title, lambda: None, self)
+        dialog.setWindowTitle(_ui_text("LunaSecurity – Echtzeitschutz: Bedrohung erkannt"))
+        dialog.findChild(QLabel).setText(_ui_text("Der Echtzeitschutz hat eine Bedrohung gefunden"))
+        detected_path = None
+        for line in str(output).splitlines():
+            if line.strip().endswith("FOUND") or " FOUND " in line:
+                detected_path = sec.detection_path(line.strip())
+                if detected_path:
+                    break
+        if detected_path:
+            dialog.status.setText(_ui_text("Bedrohung erkannt – Datei:") + " " + detected_path)
+        else:
+            dialog.status.setText(_ui_text("Bedrohung erkannt – Details stehen im Prüfbericht."))
+        dialog.finish(title, str(output))
+        dialog.cancel_button.hide()
+        dialog.close_button.setEnabled(True)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+        if not hasattr(self, "_realtime_detection_dialogs"):
+            self._realtime_detection_dialogs = []
+        self._realtime_detection_dialogs.append(dialog)
+        dialog.finished.connect(
+            lambda _result, item=dialog:
+            self._realtime_detection_dialogs.remove(item)
+            if item in self._realtime_detection_dialogs else None
+        )
+
     def report_detections(self, output, source="Manueller Scan"):
         """Persist ClamAV FOUND lines, ignoring paths just resolved by the user."""
         added = 0
@@ -2285,9 +2356,29 @@ class MainWindow(QMainWindow):
             path = sec.detection_path(line)
             if not path:
                 continue
+            normalized_path = str(Path(path).expanduser().resolve(strict=False))
+            suppressed_paths = getattr(self, "_quarantine_move_suppressed_paths", set())
+            if normalized_path in suppressed_paths:
+                # Suppress only the old file-move event (the source no longer
+                # exists). If a file is created again at the same path, it is
+                # a fresh object and must be scanned/reported immediately.
+                if not Path(path).expanduser().exists():
+                    continue
+                suppressed_paths.discard(normalized_path)
+            # ClamOnAcc can still emit events for moves into the private
+            # quarantine even when its config exclusion is active. Never treat
+            # the quarantine storage itself as a user-facing detection.
+            try:
+                Path(path).expanduser().resolve(strict=False).relative_to(
+                    sec.QUARANTINE.expanduser().resolve(strict=False)
+                )
+                continue
+            except ValueError:
+                pass
             # A real-time log line can arrive just after the file was moved.
             # Do not recreate the just-resolved finding in the same session.
-            if str(Path(path).expanduser().resolve(strict=False)) in self._resolved_detection_paths:
+            if (source != "Echtzeitschutz" and
+                    str(Path(path).expanduser().resolve(strict=False)) in self._resolved_detection_paths):
                 continue
             # Avoid adding the same path/signature repeatedly on each refresh.
             existing = self._read_security_events()
@@ -2298,6 +2389,21 @@ class MainWindow(QMainWindow):
             added += 1
         if added:
             self.log.append(f"\n{added} erkannte Datei(en) im Sicherheitsereignis-Protokoll gespeichert.")
+            if source == "Echtzeitschutz":
+                # Echtzeitfunde ebenfalls im großen Haupt-Protokollfeld mit
+                # vollständigem Pfad anzeigen – genauso wie manuelle Scanfunde.
+                realtime_paths = []
+                for found_line in str(output).splitlines():
+                    found_line = found_line.strip()
+                    if found_line.endswith("FOUND") or " FOUND " in found_line:
+                        found_path = sec.detection_path(found_line)
+                        if found_path and found_path not in realtime_paths:
+                            realtime_paths.append(found_path)
+                if realtime_paths:
+                    self.log.append("Echtzeitschutz – gefundene Datei(en):")
+                    for found_path in realtime_paths:
+                        self.log.append(f"Datei: {found_path}")
+                self.show_realtime_detection_window(str(output))
             if hasattr(self, "_qt_tray") and self._qt_tray.isVisible():
                 self._qt_tray.showMessage("LunaSecurity – Bedrohung erkannt", f"{added} Fund/Funde: {source}", QSystemTrayIcon.MessageIcon.Warning, 10000)
             if hasattr(self, "sound_enabled") and self.sound_enabled.isChecked():
@@ -2329,12 +2435,20 @@ class MainWindow(QMainWindow):
             # after a successful quarantine/delete action.
             entry.setData(257, dict(item))
             self.events_view.addItem(entry)
-        if not events:
-            self.events_view.addItem(_ui_text("Noch keine erkannten Bedrohungen gespeichert."))
-            self.alert_banner.hide()
+        if events:
+            # Keep the warning banner tied to the persisted event list, not to
+            # a translated tab caption or a cached UI state.
+            count = len(events)
+            if APP_LANGUAGE == "en":
+                banner_text = f"⚠ {count} saved security event(s) – details under Virus protection"
+            else:
+                banner_text = f"⚠ {count} gespeicherte Sicherheitsereignisse – Details unter Virenschutz"
+            self.alert_banner.setText(banner_text)
+            self.alert_banner.setVisible(True)
+            self.alert_banner.raise_()
         else:
-            self.alert_banner.setText(_ui_text('⚠ {count} gespeicherte Sicherheitsereignisse – Details im Tab „Virenschutz“').format(count=len(events)))
-            self.alert_banner.show()
+            self.events_view.addItem(_ui_text("Noch keine erkannten Bedrohungen gespeichert."))
+            self.alert_banner.setVisible(False)
 
     def _selected_detection_path(self):
         item = self.events_view.currentItem()
@@ -2387,6 +2501,7 @@ class MainWindow(QMainWindow):
         if answer != QMessageBox.Yes:
             return
         try:
+            self._suppress_quarantine_move_alert(path)
             self.log.append(sec.quarantine_file(path))
             self._remove_processed_security_event(event_record, path)
             self.refresh_quarantine()
@@ -2446,10 +2561,24 @@ class MainWindow(QMainWindow):
         if entry_id is None:
             QMessageBox.information(self, "Quarantäne", "Bitte zuerst eine Datei auswählen.")
             return
+        if self.module_worker and self.module_worker.isRunning():
+            QMessageBox.information(self, "LunaSecurity", "Bitte zuerst die laufende Sicherheitsprüfung abschließen.")
+            return
         try:
+            # Consume any pending notification from the earlier move into
+            # quarantine while its source path is still suppressed.
+            self.check_realtime_log()
+            row, _stored = sec._quarantine_record(entry_id)
+            restored_path = str(Path(row[1]).expanduser().resolve(strict=False))
             result = sec.restore_quarantined(entry_id)
+            # The quarantine-move suppression must not hide the new file
+            # creation at the original path. Remove it immediately after the
+            # restore; the pending move event was consumed above.
+            getattr(self, "_quarantine_move_suppressed_paths", set()).discard(restored_path)
             self.log.append(result)
             self.refresh_quarantine()
+            # ClamOnAcc observes the newly written file at its original path.
+            # No second manual scan/dialog is started here.
         except Exception as exc:
             QMessageBox.critical(self, "Wiederherstellen fehlgeschlagen", str(exc))
 
@@ -2478,10 +2607,21 @@ class MainWindow(QMainWindow):
                 self._realtime_log_offset = 0
             if size == self._realtime_log_offset:
                 return
+            # Den Logzeiger erst nach der Verarbeitung weiterschieben. Während
+            # eines manuellen Scans dürfen gespiegelt auftauchende OnAccess-Zeilen
+            # nicht als Echtzeit-Popup erscheinen; sie bleiben aber im Log und
+            # werden danach verarbeitet. Bereits vom manuellen Scan gespeicherte
+            # Funde werden durch report_detections() dedupliziert.
+            start_offset = self._realtime_log_offset
             with self._realtime_log_path.open("r", errors="replace") as handle:
-                handle.seek(self._realtime_log_offset)
+                handle.seek(start_offset)
                 chunk = handle.read()
-                self._realtime_log_offset = handle.tell()
+                end_offset = handle.tell()
+            scan_running = bool(self.worker and self.worker.isRunning())
+            suppress_until = getattr(self, "_manual_scan_realtime_suppressed_until", 0)
+            if scan_running or time.monotonic() < suppress_until:
+                return
+            self._realtime_log_offset = end_offset
             for line in chunk.splitlines():
                 if " FOUND" in line or line.strip().endswith("FOUND"):
                     self.report_detections(line, source="Echtzeitschutz")
@@ -2711,8 +2851,23 @@ class MainWindow(QMainWindow):
                 "konnte nicht ins Hauptprotokoll übernommen werden."
             )
         self.log.append("ClamAV-Prüfung beendet. Details und Live-Protokoll stehen im Scanfenster.")
+        # Ignore delayed ClamOnAcc notifications caused by the manual scan.
+        self._manual_scan_realtime_suppressed_until = time.monotonic() + 5
         if "Scan wurde vom Benutzer abgebrochen" not in text:
-            self.report_detections(text)
+            self.report_detections(text, source="Manueller Scan")
+            # Show every detected file path directly in the main activity
+            # panel (the red-marked area), not only in the event list below.
+            found_paths = []
+            for line in str(text).splitlines():
+                line = line.strip()
+                if line.endswith("FOUND") or " FOUND " in line:
+                    found_path = sec.detection_path(line)
+                    if found_path and found_path not in found_paths:
+                        found_paths.append(found_path)
+            if found_paths:
+                self.log.append("Gefundene Datei(en):")
+                for found_path in found_paths:
+                    self.log.append(f"Datei: {found_path}")
         self.log.append("Scan-Aufgabe beendet.")
         self.signature_version_label.setText(_ui_text("Installierte Virensignaturen:") + " " + signature_database_versions())
         # Ergebnis, Kopieren und Schließen sind im gemeinsamen ClamAV-Fenster.
@@ -3024,7 +3179,9 @@ class MainWindow(QMainWindow):
         if not path: return
         answer = QMessageBox.warning(self, "Quarantäne bestätigen", f"Diese Datei wird aus ihrem ursprünglichen Ort verschoben und isoliert:\n\n{path}\n\nFortfahren?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if answer == QMessageBox.Yes:
-            try: self.log.append(sec.quarantine_file(path))
+            try:
+                self._suppress_quarantine_move_alert(path)
+                self.log.append(sec.quarantine_file(path))
             except Exception as exc: QMessageBox.critical(self, "Quarantäne fehlgeschlagen", str(exc))
 
     def shutdown(self):

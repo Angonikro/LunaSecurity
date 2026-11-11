@@ -406,14 +406,25 @@ def restore_quarantined(entry_id):
     if original.exists() or original.is_symlink():
         raise FileExistsError(f"Am ursprünglichen Ort existiert bereits eine Datei: {original}")
     original.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(stored), str(original))
+    # Write directly to the final path so ClamOnAcc observes one ordinary
+    # file creation. Do not create a temporary sibling or trigger a rename.
     try:
+        with stored.open("rb") as source, original.open("xb") as destination:
+            shutil.copyfileobj(source, destination)
+            destination.flush()
+            os.fsync(destination.fileno())
         original.chmod(0o600)
-    except OSError:
-        pass
+    except Exception:
+        try:
+            original.unlink()
+        except OSError:
+            pass
+        raise
+    stored.unlink()
     with sqlite3.connect(DB) as db:
         db.execute('DELETE FROM quarantine WHERE id=?', (int(entry_id),))
     return f"Datei wiederhergestellt: {original}"
+
 
 def delete_quarantined(entry_id):
     row, stored = _quarantine_record(entry_id)

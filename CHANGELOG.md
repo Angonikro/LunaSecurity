@@ -1,6 +1,16 @@
 # Änderungsprotokoll LunaSecurity
 
+## Version 0.4.31
+- Manuelle ClamAV-Scans unterdrücken zeitgleich ausgelöste ClamOnAcc-Zugriffsmeldungen einschließlich kurzer Nachlaufzeit; nur der manuelle Scanbericht meldet den Fund. Das Echtzeit-Fenster bleibt echten, unabhängigen On-Access-Funden vorbehalten.
+- Neues gemeinsames Fundfenster: Jeder neu protokollierte ClamOnAcc-Echtzeitfund öffnet automatisch den Prüfbericht „Echtzeitschutz – Bedrohung erkannt“; Wiederherstellungsprüfungen verwenden dieselbe Bezeichnung.
+- Quarantäne-Wiederherstellung schreibt die Datei am ursprünglichen Ort neu statt sie nur zu verschieben; anschließend wird sie zusätzlich direkt mit clamdscan geprüft und ein erneuter Fund als Sicherheitsereignis gemeldet.
+- Versionsnummer für den geprüften Echtzeitschutz-Fix auf 0.4.31 angehoben.
+- Enthält die Korrekturen aus 0.4.30: erneute Meldung neu auftauchender Echtzeitfunde, zurückgesetzte Fundpfad-Merkliste bei neuen Scans und zuverlässiges Warnbanner.
+
 ## Version 0.4.30
+- Echtzeitschutz: Neue ClamOnAcc-Funde werden nicht mehr durch die Merkliste bereits bereinigter Pfade unterdrückt; erneut auftauchende Dateien lösen wieder Warnung und Ereignis aus.
+- Erledigte Fundpfade werden zu Beginn eines neuen Scans zurückgesetzt, damit erneut auftauchende Testdateien wieder Warnbanner und Sicherheitsereignis auslösen.
+- Warnbanner für gespeicherte Sicherheitsfunde wird beim Laden und nach neuen Funden zuverlässig anhand des Ereignisprotokolls eingeblendet.
 - Hinweisbanner verweist jetzt auf den tatsächlich so benannten Tab „Virenschutz“; die Meldung ist sprachabhängig übersetzt.
 - Echtzeitschutz-Schaltfläche, Statusanzeige und Statuspunkt wieder in die bestehende Aktionszeile integriert; keine zusätzliche Zeile.
 - Beschriftung „Vollständiger Systemscan“ zu „Systemscan“ verkürzt, damit die Aktionszeile besser passt.

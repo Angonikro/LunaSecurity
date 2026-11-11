@@ -9,12 +9,27 @@ if ! grep -qF "$MARKER" "$CONF"; then
     cat >> "$CONF" <<'CONFIG'
 
 # LunaSecurity on-access protection
-ScanOnAccess yes
 OnAccessIncludePath /home
 OnAccessExcludeUname clamav
 OnAccessPrevention no
 CONFIG
 fi
+
+# Exclude the current desktop user's private quarantine from on-access scans.
+# pkexec provides PKEXEC_UID; sudo provides SUDO_USER.
+USER_NAME="${SUDO_USER:-}"
+if [ -n "${PKEXEC_UID:-}" ]; then
+    USER_NAME="$(getent passwd "$PKEXEC_UID" | cut -d: -f1)"
+fi
+if [ -n "$USER_NAME" ]; then
+    USER_HOME="$(getent passwd "$USER_NAME" | cut -d: -f6)"
+    if [ -n "$USER_HOME" ]; then
+        QUARANTINE_PATH="$USER_HOME/.local/share/LunaSecurity/quarantine"
+        sed -i '/^[[:space:]]*OnAccessExcludePath[[:space:]]/d' "$CONF"
+        printf '\n# Exclude LunaSecurity quarantine.\nOnAccessExcludePath %s\n' "$QUARANTINE_PATH" >> "$CONF"
+    fi
+fi
+
 systemctl enable clamav-daemon.service
 systemctl restart clamav-daemon.service
 
