@@ -7,7 +7,7 @@ LunaSecurity bündelt verschiedene lokale Sicherheits- und Diagnosewerkzeuge in 
 
 LunaSecurity ist eine Bedienoberfläche für vorhandene Linux-Werkzeuge – kein Ersatz für ein vollständig verwaltetes Endpoint-Protection-System. Prüfungen und Schutzfunktionen haben unterschiedliche Voraussetzungen und Grenzen. Diese Dokumentation beschreibt, was die Anwendung tatsächlich ausführt und welche Schritte du selbst durchführen musst.
 
-![LunaSecurity](lunasecurity1.png)
+![LunaSecurity](lunasecurity.png)
 
 [Github Seite](https://github.com/Angonikro/LunaSecurity/)
 
@@ -126,6 +126,25 @@ chmod +x build_deb.sh
 ```
 
 Das erzeugte Paket liegt anschließend im Verzeichnis `dist/`. Das Build-Skript legt außerdem temporäre Dateien im Verzeichnis `build/` an.
+
+## Aus dem ZIP starten
+
+```bash
+sudo apt update
+sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtprintsupport python3-gi gir1.2-gtk-3.0 clamav clamav-daemon clamav-freshclam rkhunter chkrootkit pkexec polkitd aide yara nftables iproute2 auditd lynis fail2ban mate-polkit
+```
+Lade die zip Datei runter, LunaSecurity_0.4.29_GITHUB.zip
+
+Wechsle in den Download-Ordner und entpacke das Archiv:
+
+cd ~/Downloads
+unzip LunaSecurity_0.4.29_GITHUB.zip
+
+LunaSecurity starten
+
+Im Projektverzeichnis folgenden Befehl ausführen:
+
+python3 -m lunasecurity
 
 ## Erster Start
 
