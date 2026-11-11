@@ -18,16 +18,20 @@ def _german_file_dialog(parent, title, start_dir, directory_mode=False, file_fil
     dialog.setFileMode(QFileDialog.FileMode.Directory if directory_mode else QFileDialog.FileMode.ExistingFile)
     # Gleiche Dialogansicht für Datei- und Ordnerauswahl; nur der Auswahlmodus ändert sich.
     dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)
-    dialog.setLabelText(QFileDialog.DialogLabel.LookIn, "Suchen in:")
-    dialog.setLabelText(QFileDialog.DialogLabel.FileName,
-                        "Verzeichnis:" if directory_mode else "Dateiname:")
-    dialog.setLabelText(QFileDialog.DialogLabel.FileType, "Dateityp:")
-    dialog.setLabelText(QFileDialog.DialogLabel.Accept,
-                        "Ordner auswählen" if directory_mode else "Datei auswählen")
-    dialog.setLabelText(QFileDialog.DialogLabel.Reject, "Abbrechen")
+    labels = ("Look in:", "Directory:" if directory_mode else "File name:", "File type:",
+              "Choose folder" if directory_mode else "Choose file", "Cancel") if APP_LANGUAGE == "en" else (
+              "Suchen in:", "Verzeichnis:" if directory_mode else "Dateiname:", "Dateityp:",
+              "Ordner auswählen" if directory_mode else "Datei auswählen", "Abbrechen")
+    dialog.setLabelText(QFileDialog.DialogLabel.LookIn, labels[0])
+    dialog.setLabelText(QFileDialog.DialogLabel.FileName, labels[1])
+    dialog.setLabelText(QFileDialog.DialogLabel.FileType, labels[2])
+    dialog.setLabelText(QFileDialog.DialogLabel.Accept, labels[3])
+    dialog.setLabelText(QFileDialog.DialogLabel.Reject, labels[4])
     dialog.setNameFilter("Verzeichnisse (*)" if directory_mode else file_filter)
 
     def translate_widgets():
+        if APP_LANGUAGE == "en":
+            return
         for label in dialog.findChildren(QLabel):
             value = label.text().replace("&", "").strip().rstrip(":")
             mapping = {
@@ -116,6 +120,22 @@ class GermanQtTranslator(QTranslator):
         return self._translations.get(source, source)
 
 
+
+class EnglishMessageBoxFix(QObject):
+    """Translates application message boxes when English is selected."""
+    def eventFilter(self, watched, event):
+        if isinstance(watched, QMessageBox) and event.type() == QEvent.Type.Show and APP_LANGUAGE == "en":
+            mapping = EN_TRANSLATIONS
+            title = watched.windowTitle()
+            text = watched.text()
+            info = watched.informativeText()
+            details = watched.detailedText()
+            if title: watched.setWindowTitle(mapping.get(title, title))
+            if text: watched.setText(mapping.get(text, text))
+            if info: watched.setInformativeText(mapping.get(info, info))
+            if details: watched.setDetailedText(mapping.get(details, details))
+        return super().eventFilter(watched, event)
+
 class GermanDialogButtonFix(QObject):
     """Erzwingt sichtbare deutsche Beschriftungen auf allen QMessageBox-Buttons."""
     _labels = {
@@ -145,6 +165,37 @@ class GermanDialogButtonFix(QObject):
                     button.setIcon(QIcon())
                     button.setMinimumWidth(max(76, button.fontMetrics().horizontalAdvance(label) + 28))
         return super().eventFilter(watched, event)
+
+APP_LANGUAGE = "de"
+APP_QT_TRANSLATOR = None
+APP_DIALOG_BUTTON_FIX = None
+APP_EN_DIALOG_FIX = None
+EN_TRANSLATIONS = {'Sicherheitsübersicht für dein Linux-System': 'Security overview for your Linux system', 'Dateien / Ordner scannen': 'Scan files / folders', 'Home-Verzeichnis prüfen': 'Scan home directory', 'Eigenes Profil': 'Custom profile', 'Schnellscan': 'Quick scan', 'Komplettscan': 'Full scan', 'Vor jedem Scan automatisch Virensignaturen mit freshclam aktualisieren': 'Automatically update virus signatures with freshclam before each scan', 'Virensignatur aktualisieren': 'Update virus signatures', 'Systemscan': 'System scan', 'Echtzeitschutz aktivieren': 'Enable real-time protection', 'Echtzeitschutz deaktivieren': 'Disable real-time protection', 'Echtzeitschutz: Status wird geprüft …': 'Real-time protection: checking status …', 'Beim Schließen im Infobereich weiterlaufen': 'Keep running in the system tray when closed', 'Beim Start direkt im Infobereich starten': 'Start directly in the system tray', 'LunaSecurity automatisch bei der Anmeldung starten': 'Start LunaSecurity automatically at login', 'Erweiterte Sicherheit': 'Advanced security', 'Sicherheitsereignisse': 'Security events', 'Quarantäne': 'Quarantine', 'Systemschutz': 'System protection', 'Reparatur & Wiederherstellung': 'Repair & recovery', 'Netzwerk': 'Network', 'Dateiwerkzeuge': 'File tools', 'Alarm & Audio': 'Alerts & audio', 'Einstellungen': 'Settings', 'Allgemeine Programmoptionen': 'General application options', 'ClamAV – Scanoptionen': 'ClamAV – scan options', 'Diese Optionen werden bei Datei- und Ordnerscans an ClamAV übergeben.': 'These options are passed to ClamAV during file and folder scans.', 'Potenziell unerwünschte Programme (PUP) erkennen': 'Detect potentially unwanted programs (PUPs)', 'Heuristische Erkennung verwenden': 'Use heuristic detection', 'Versteckte Dateien und Ordner untersuchen': 'Scan hidden files and folders', 'Dateien größer als 20 MB untersuchen (bis 2 GB)': 'Scan files larger than 20 MB (up to 2 GB)', 'Unterordner rekursiv durchsuchen': 'Scan subfolders recursively', 'Hier findest du alle aktivierbaren Optionen der Hauptoberfläche.': 'Here you can find all configurable options for the main interface.', 'Akustischen Alarm aktivieren': 'Enable audible alarm', 'WAV auswählen': 'Select WAV', 'Eingebauten Sound verwenden': 'Use built-in sound', 'Testalarm abspielen': 'Play test alarm', 'Audio-Ausgabe': 'Audio output', 'Ausgabegerät': 'Output device', 'Lautstärke': 'Volume', 'Datei auswählen und in Quarantäne verschieben': 'Select file and move to quarantine', 'Quarantäne anzeigen': 'Show quarantine', 'YARA-Regeln aktualisieren': 'Update YARA rules', 'Dashboard aktualisieren': 'Refresh dashboard', 'Bericht kopieren': 'Copy report', 'Vollständige Scanner-Ausgabe': 'Full scanner output', 'Empfohlene nächste Schritte': 'Recommended next steps', 'Liste aktualisieren': 'Refresh list', 'Sichern & deaktivieren': 'Back up & disable', 'Eintrag wiederherstellen': 'Restore entry', 'Paket sichern & reparieren': 'Back up & repair package', 'Gesicherte Paketdateien wiederherstellen': 'Restore backed-up package files', 'Installierte Pakete auf Dateiänderungen prüfen': 'Check installed packages for file changes', 'Datei endgültig löschen': 'Delete file permanently', 'In Quarantäne verschieben': 'Move to quarantine', 'Alarm bei erkannten Bedrohungen': 'Alert when threats are detected', 'Rootkit-Prüfung starten (rkhunter + chkrootkit)': 'Run rootkit check (rkhunter + chkrootkit)', 'Systemintegrität prüfen (AIDE)': 'Check system integrity (AIDE)', 'System-Audit (Autostart, Dienste, Cron, SSH)': 'System audit (autostart, services, cron, SSH)', 'Benutzer-Autostart': 'User autostart', 'Paket neu installieren': 'Reinstall package', 'Schließen': 'Close', 'Wiederherstellen': 'Restore', 'Prüfung abbrechen': 'Cancel check', 'Scan abbrechen': 'Cancel scan', 'Ergebnis kopieren': 'Copy result', 'Scan-Protokoll': 'Scan log', 'Verstrichene Zeit: 00:00': 'Elapsed time: 00:00', '● Aktiv': '● Active', 'Prüfung wird vorbereitet …': 'Preparing check …', 'ClamAV-Scan läuft': 'ClamAV scan running', 'Keine Paketsicherungen gefunden.': 'No package backups found.'}
+
+EN_TRANSLATIONS.update({
+    'Installierte Virensignaturen:': 'Installed virus signatures:',
+    'Echtzeitschutz:': 'Real-time protection:',
+    'Echtzeitschutz: Hintergrundauftrag läuft …': 'Real-time protection: background task running …',
+    'Aktiv': 'Active',
+    'Aus': 'Off',
+    'Status unklar': 'Status unknown',
+    'Echtzeitschutz ist aktiv': 'Real-time protection is active',
+    'Echtzeitschutz ist ausgeschaltet': 'Real-time protection is disabled',
+    'Status des Echtzeitschutzes konnte nicht ermittelt werden': 'Could not determine real-time protection status',
+    'FEHLER: Der Scanumfang konnte nicht aus dem Scanfenster übernommen werden. Bitte das Scan-Protokoll im Scanfenster prüfen.': 'ERROR: The scan scope could not be retrieved from the scan window. Please check the scan log in the scan window.',
+    'FEHLER: Das Scanfenster ist nicht verfügbar; der Scanumfang konnte nicht ins Hauptprotokoll übernommen werden.': 'ERROR: The scan window is unavailable; the scan scope could not be copied to the main log.',
+    'Noch keine erkannten Bedrohungen gespeichert.': 'No detected threats have been saved yet.',
+    '⚠ BEDROHUNG ERKANNT – Details siehe Sicherheitsereignisse': '⚠ THREAT DETECTED – see Security events for details',
+    'Echtzeitschutz wird im Hintergrund aktiviert …': 'Real-time protection is being enabled in the background …',
+    'Echtzeitschutz wird im Hintergrund deaktiviert …': 'Real-time protection is being disabled in the background …',
+    'Hinweis: Der Dienststatus konnte nicht sicher bestätigt werden.': 'Note: The service status could not be confirmed.',
+})
+EN_TRANSLATIONS.update({'Virenschutz': 'Virus protection', 'ClamAV-Scanner und Echtzeitschutz': 'ClamAV scanner and real-time protection', 'Systemschutz': 'System protection', 'Rootkit-, AIDE- und System-Audit': 'Rootkit, AIDE and system audit', 'Ports und Firewall-Regeln': 'Ports and firewall rules', 'Noch keine erkannten Bedrohungen gespeichert.': 'No detected threats have been saved yet.', 'Ordner auswählen': 'Select folder', 'Datei auswählen': 'Select file', 'Sicherheitsereignisse': 'Security events'})
+
+EN_TRANSLATIONS.update({'Was möchtest du scannen?': 'What would you like to scan?', 'Datei zum Scannen auswählen': 'Select file to scan', 'Ordner zum Scannen auswählen': 'Select folder to scan', 'Scanbereich:': 'Scan area:', 'Root-Rechte werden nur für geschützte Systembereiche benötigt.': 'Administrator privileges are only required for protected system areas.', 'Geprüfte Dateien': 'Files checked', 'Bedrohungen': 'Threats', 'Nicht lesbar': 'Unreadable', 'Übersprungen': 'Skipped', 'Aktuelle Datei:': 'Current file:', 'Verstrichene Zeit:': 'Elapsed time:', 'Scan läuft …': 'Scan running …', 'Abbruch läuft …': 'Cancelling …', 'Der Scan wird abgebrochen …': 'Cancelling the scan …', 'Abgebrochen': 'Cancelled', 'Abgeschlossen': 'Completed', 'Scan abgebrochen. Das bisherige Ergebnis steht im Scan-Protokoll.': 'Scan cancelled. The results so far are available in the scan log.', 'Scan abgeschlossen. Das vollständige Ergebnis steht im Scan-Protokoll.': 'Scan completed. The full result is available in the scan log.', 'fail2ban-Status prüfen': 'Check fail2ban status', 'fail2ban-Verbindung:': 'fail2ban connection:', 'Gesamtstatus:': 'Overall status:', 'SSH-Jail:': 'SSH jail:'})
+EN_TRANSLATIONS.update({'Darstellung & Sprache': 'Appearance & language', 'Sprache / Language': 'Language', 'Design / Theme': 'Theme', 'Dunkel – Graphit': 'Dark – Graphite', 'Hell – Luna': 'Light – Luna', 'Allgemeine Programmoptionen': 'General application options', 'Zusätzliche Systemhärtungsprüfung und Überwachung. Diese Funktionen lesen den Systemstatus und ändern keine Sicherheitsregeln.': 'Additional system-hardening checks and monitoring. These functions read system status and do not change security rules.', 'Erkannte Dateien auswählen, um sie zu isolieren oder zu löschen.': 'Select detected files to quarantine or delete.', 'Ausgewählten Fund in Quarantäne': 'Quarantine selected detection', 'Gefundene Datei löschen': 'Delete detected file', 'Ereignisprotokoll leeren': 'Clear event log', 'Aktualisieren': 'Refresh', 'Endgültig löschen': 'Delete permanently', 'Prüft installierte Paketdateien. Bei Abweichungen kannst du das betroffene Paket über APT neu installieren.': 'Checks installed package files. If differences are found, you can reinstall the affected package through APT.', 'Netzwerk- und Firewall-Sicherheitscheck (mit Admin-Abfrage)': 'Network and firewall security check (administrator authentication required)', 'Datei/Ordner für YARA auswählen': 'Select file/folder for YARA', 'Quarantäne anzeigen': 'Show quarantine', 'Hier findest du alle aktivierbaren Optionen der Hauptoberfläche.': 'Here you can find all configurable options for the main interface.', 'Aktiviert ClamAVs Erkennung potenziell unerwünschter Anwendungen. Kann zusätzliche Treffer liefern.': 'Enables ClamAV detection of potentially unwanted applications. May produce additional detections.', 'Aktiviert oder deaktiviert ClamAVs heuristische Erkennung.': 'Enables or disables ClamAV heuristic detection.', 'Bezieht bei Ordnerscans auch Einträge ein, deren Name mit einem Punkt beginnt.': 'Includes entries whose names begin with a dot when scanning folders.', 'Erhöht die ClamAV-Grenzen für Dateigröße und entpackte Scanmenge auf bis zu 2 GB. Das kann deutlich länger dauern.': 'Raises ClamAV file-size and extracted-scan limits to 2 GB. This can take considerably longer.', 'Wenn deaktiviert, werden bei einem Ordnerscan nur Dateien direkt im ausgewählten Ordner geprüft.': 'When disabled, only files directly inside the selected folder are scanned.', 'LunaSecurity führt Prüfungen nachvollziehbar aus. Rootkit- und Integritätsprüfungen können Administratorrechte benötigen. Funde werden nicht automatisch gelöscht.': 'LunaSecurity performs traceable checks. Rootkit and integrity checks may require administrator privileges. Detections are not deleted automatically.', 'Beim Schließen im Infobereich weiterlaufen': 'Keep running in the system tray when closed', 'Beim Start direkt im Infobereich starten': 'Start directly in the system tray', 'LunaSecurity automatisch bei der Anmeldung starten': 'Start LunaSecurity automatically at login', 'Root-Rechte werden nur für geschützte Systembereiche benötigt.': 'Administrator privileges are only required for protected system areas.', 'Bericht kopieren': 'Copy report', 'PDF-Bericht konnte nicht gespeichert werden': 'Could not save PDF report', 'Prüfung wird vorbereitet …': 'Preparing check …', 'Aktuelle Datei: wird vorbereitet …': 'Current file: preparing …', 'Scan-Ziel auswählen': 'Select scan target', 'Port gezielt sperren': 'Block a specific port'})
+EN_TRANSLATIONS.update({'0\nBedrohungen': '0\nThreats', '0\nGeprüfte Dateien': '0\nFiles checked', '0\nNicht lesbar': '0\nUnreadable', '0\nÜbersprungen': '0\nSkipped', 'Debian-Paketintegrität und Reparatur': 'Debian package integrity and repair', 'Einträge dieses Benutzerkontos anzeigen, reversibel deaktivieren oder zurückholen.': 'View entries for this user account, disable them reversibly, or restore them.', 'Ergebnisse von rkhunter und chkrootkit. Warnungen können Fehlalarme sein und müssen einzeln bewertet werden.': 'Results from rkhunter and chkrootkit. Warnings may be false positives and must be assessed individually.', 'Kein Scan-Ziel ausgewählt': 'No scan target selected', 'LunaSecurity – ClamAV-Systemprüfung': 'LunaSecurity – ClamAV system scan', 'LunaSecurity – Linux Security Suite': 'LunaSecurity – Linux Security Suite', 'LunaSecurity – Rootkit-Prüfbericht': 'LunaSecurity – rootkit report', 'Lynis-Sicherheitsprüfung starten': 'Run Lynis security check', 'PipeWire-, PulseAudio- und ALSA-Ausgabe werden automatisch erkannt. Geräteauswahl wird bei unterstützten Backends angewendet.': 'PipeWire, PulseAudio and ALSA outputs are detected automatically. Device selection is applied for supported backends.', 'Prüfergebnisse und Reparaturprotokoll': 'Check results and repair log', 'Reparaturen nur nach deiner Bestätigung. Vor Änderungen werden Sicherungen angelegt. Systemdateien und Rootkit-Funde werden nicht blind verändert.': 'Repairs are performed only after your confirmation. Backups are created before changes. System files and rootkit detections are never modified blindly.', 'Reparaturhilfe öffnen': 'Open repair help', 'Scan-Ergebnis kopieren': 'Copy scan result', 'Sicherheitsbericht als HTML speichern': 'Save security report as HTML', 'Sicherheitsbericht als PDF speichern': 'Save security report as PDF', 'Vorherige Sicherungen auswählen und zurückspielen. Bereits vorhandene Dateien werden nicht überschrieben.': 'Select and restore previous backups. Existing files will not be overwritten.', 'Wiederherstellung': 'Recovery', 'fail2ban-Status prüfen': 'Check fail2ban status'})
+EN_TRANSLATIONS.update({'Es läuft bereits eine Sicherheitsaufgabe.': 'A security task is already running.', 'Es läuft bereits eine Sicherheitsprüfung.': 'A security check is already running.', 'Bitte zuerst eine Datei auswählen.': 'Please select a file first.', 'Bitte zuerst einen Fund mit erkannter Dateiangabe auswählen.': 'Please select a detection with an identified file path first.', 'pkexec ist nicht installiert.': 'pkexec is not installed.', 'Keine gesicherten Autostart-Einträge vorhanden.': 'No backed-up autostart entries found.', 'Keine Paketsicherungen gefunden.': 'No package backups found.', 'Das Reparatur-Hilfsprogramm fehlt.': 'The repair helper is missing.', 'Das Wiederherstellungsprogramm fehlt.': 'The recovery helper is missing.', 'Der PDF-Drucker konnte nicht initialisiert werden.': 'The PDF printer could not be initialized.', 'PDF-Bericht konnte nicht gespeichert werden': 'Could not save PDF report', 'Quarantäne fehlgeschlagen': 'Quarantine failed', 'Löschen fehlgeschlagen': 'Delete failed', 'Wiederherstellung fehlgeschlagen': 'Recovery failed', 'Reparatur fehlgeschlagen': 'Repair failed', 'Dateiauswahl abgebrochen; kein Scan gestartet.': 'File selection cancelled; scan not started.', 'Ordnerauswahl abgebrochen; kein Scan gestartet.': 'Folder selection cancelled; scan not started.', 'Die Signaturen konnten nicht aktualisiert werden. Prüfe die Berechtigungen oder ob bereits der freshclam-Dienst läuft.': 'The signatures could not be updated. Check permissions or whether the freshclam service is already running.', 'Der Dienst clamav-freshclam läuft bereits. Er aktualisiert die Signaturen selbst; ein paralleler manueller Aufruf wurde vermieden.': 'The clamav-freshclam service is already running and updates signatures itself; a parallel manual update was avoided.', 'Die neue Signaturversion wurde übernommen.': 'The new signature version has been installed.', 'Die Signaturversion ist unverändert (Datenbank war möglicherweise bereits aktuell).': 'The signature version is unchanged (the database may already have been up to date).', 'Signaturaktualisierung abgeschlossen.': 'Signature update completed.', 'Signaturaktualisierung im Hintergrund beendet.': 'Background signature update finished.', 'Status geprüft.': 'Status checked.', 'Echtzeitschutz aktiviert.': 'Real-time protection enabled.', 'Echtzeitschutz deaktiviert.': 'Real-time protection disabled.', 'Prüfung abgeschlossen': 'Check completed', 'Prüfung abgebrochen': 'Check cancelled', 'Scan abgeschlossen. Das vollständige Ergebnis steht im Scan-Protokoll.': 'Scan completed. The full result is available in the scan log.', 'Scan abgebrochen. Das bisherige Ergebnis steht im Scan-Protokoll.': 'Scan cancelled. The results so far are available in the scan log.', 'Keine erreichbaren Systemverzeichnisse für den Scan gefunden.': 'No accessible system directories found for scanning.', 'Keines der ausgewählten Systemverzeichnisse ist vorhanden.': 'None of the selected system directories exists.'})
 
 APP_DIR = Path.home() / ".config" / "LunaSecurity"
 EVENTS_FILE = Path.home() / ".local" / "share" / "LunaSecurity" / "security-events.json"
@@ -799,43 +850,84 @@ class MoonArtwork(QWidget):
         p.end()
 
 
+def _ui_text(value):
+    """Übersetzt auch Texte in zur Laufzeit erzeugten Dialogen und Statusmeldungen."""
+    value = str(value)
+    if APP_LANGUAGE != "en":
+        return value
+    translated = EN_TRANSLATIONS.get(value)
+    if translated is not None:
+        return translated
+    # Häufige dynamische Meldungen und zusammengesetzte Statuszeilen.
+    replacements = (
+        ("fail2ban-Überwachung", "fail2ban monitoring"),
+        (" läuft", " running"),
+        (" gestartet.", " started."),
+        (" beendet.", " finished."),
+        ("fail2ban-Verbindung:", "fail2ban connection:"),
+        ("Gesamtstatus:", "Overall status:"),
+        ("SSH-Jail:", "SSH jail:"),
+        ("Prüfung abgeschlossen", "Check completed"),
+        ("Prüfung abgebrochen", "Check cancelled"),
+        ("Prüfung wird vorbereitet …", "Preparing check …"),
+        ("Prüfung läuft …", "Check running …"),
+        ("Prüfung abbrechen", "Cancel check"),
+        ("Abbruch läuft …", "Cancelling …"),
+        ("Die Prüfung wird abgebrochen …", "Cancelling the check …"),
+        ("Ergebnis kopieren", "Copy result"),
+        ("Ausgaben der laufenden Prüfung erscheinen hier.", "Output from the running check will appear here."),
+        ("Was möchtest du scannen?", "What would you like to scan?"),
+        ("Datei zum Scannen auswählen", "Select file to scan"),
+        ("Ordner zum Scannen auswählen", "Select folder to scan"),
+        ("Dateiauswahl abgebrochen; kein Scan gestartet.", "File selection cancelled; no scan started."),
+        ("Ordnerauswahl abgebrochen; kein Scan gestartet.", "Folder selection cancelled; no scan started."),
+        ("Scan abgebrochen; kein Scan-Ziel ausgewählt.", "Scan cancelled; no scan target selected."),
+        ("fail2ban-client ist nicht installiert.", "fail2ban-client is not installed."),
+        ("Für die fail2ban-Statusabfrage wird pkexec benötigt (policykit-1).", "pkexec (policykit-1) is required to query fail2ban status."),
+        ("Der LunaSecurity-Helfer für fail2ban fehlt.", "The LunaSecurity fail2ban helper is missing."),
+    )
+    for source, target in replacements:
+        value = value.replace(source, target)
+    return value
+
+
 class ModuleProgressDialog(QDialog):
     """Fortschrittsfenster für Sicherheitsprüfungen außerhalb von ClamAV."""
     def __init__(self, title, cancel_callback, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"LunaSecurity – {title}")
+        self.setWindowTitle(_ui_text(f"LunaSecurity – {title}"))
         self.setMinimumSize(700, 480)
         self.resize(860, 600)
         self.setModal(False)
         self._finished = False
         self.setStyleSheet(parent.styleSheet() if parent else "")
         layout = QVBoxLayout(self)
-        heading = QLabel(f"{title} läuft")
+        heading = QLabel(_ui_text(f"{title} läuft"))
         heading.setStyleSheet("font-size:17pt;font-weight:800")
         layout.addWidget(heading)
-        self.status = QLabel("Prüfung wird vorbereitet …")
+        self.status = QLabel(_ui_text("Prüfung wird vorbereitet …"))
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
         self.bar = QProgressBar()
         self.bar.setRange(0, 0)
-        self.bar.setFormat("Prüfung läuft …")
+        self.bar.setFormat(_ui_text("Prüfung läuft …"))
         layout.addWidget(self.bar)
         self.output = QTextEdit()
         self.output.setReadOnly(True)
         self.output.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self.output.document().setMaximumBlockCount(10000)
-        self.output.setPlaceholderText("Ausgaben der laufenden Prüfung erscheinen hier.")
+        self.output.setPlaceholderText(_ui_text("Ausgaben der laufenden Prüfung erscheinen hier."))
         layout.addWidget(self.output, 1)
         buttons = QHBoxLayout()
-        self.cancel_button = QPushButton("Prüfung abbrechen")
+        self.cancel_button = QPushButton(_ui_text("Prüfung abbrechen"))
         self.cancel_button.clicked.connect(self._cancel)
         self._cancel_callback = cancel_callback
         buttons.addWidget(self.cancel_button)
-        self.copy_button = QPushButton("Ergebnis kopieren")
+        self.copy_button = QPushButton(_ui_text("Ergebnis kopieren"))
         self.copy_button.clicked.connect(lambda: QApplication.clipboard().setText(self.output.toPlainText()))
         buttons.addWidget(self.copy_button)
         buttons.addStretch(1)
-        self.close_button = QPushButton("Schließen")
+        self.close_button = QPushButton(_ui_text("Schließen"))
         self.close_button.setEnabled(False)
         self.close_button.clicked.connect(self.accept)
         buttons.addWidget(self.close_button)
@@ -843,26 +935,26 @@ class ModuleProgressDialog(QDialog):
 
     def _cancel(self):
         self.cancel_button.setEnabled(False)
-        self.cancel_button.setText("Abbruch läuft …")
-        self.status.setText("Die Prüfung wird abgebrochen …")
+        self.cancel_button.setText(_ui_text("Abbruch läuft …"))
+        self.status.setText(_ui_text("Die Prüfung wird abgebrochen …"))
         self._cancel_callback()
 
     def append_output(self, line):
         if line:
-            self.output.append(str(line))
-            self.status.setText(str(line)[:500])
+            self.output.append(_ui_text(line))
+            self.status.setText(_ui_text(line)[:500])
 
     def finish(self, title, result):
         self._finished = True
         result = str(result or "")
         if result.strip():
-            self.output.setPlainText(result)
+            self.output.setPlainText(_ui_text(result))
             self.output.moveCursor(QTextCursor.MoveOperation.Start)
         cancelled = any(token in result.lower() for token in ("abgebrochen", "abbruch", "cancelled"))
-        self.status.setText("Prüfung abgebrochen" if cancelled else "Prüfung abgeschlossen")
+        self.status.setText(_ui_text("Prüfung abgebrochen" if cancelled else "Prüfung abgeschlossen"))
         self.bar.setRange(0, 1)
         self.bar.setValue(0 if cancelled else 1)
-        self.bar.setFormat("Abgebrochen" if cancelled else "100 %")
+        self.bar.setFormat(_ui_text("Abgebrochen") if cancelled else "100 %")
         self.cancel_button.setEnabled(False)
         self.close_button.setEnabled(True)
 
@@ -878,7 +970,7 @@ class ClamScanMonitor(QDialog):
     def __init__(self, target, parent=None, cancel_callback=None):
         super().__init__(parent)
         self.cancel_callback = cancel_callback
-        self.setWindowTitle("LunaSecurity – ClamAV-Systemprüfung")
+        self.setWindowTitle(_ui_text("LunaSecurity – ClamAV-Systemprüfung"))
         self.setMinimumSize(760, 560)
         self.setModal(False)
         self.started = time.monotonic()
@@ -895,53 +987,53 @@ class ClamScanMonitor(QDialog):
         self._skipped_fallback = set()
         root = QVBoxLayout(self)
         head = QHBoxLayout()
-        title = QLabel("ClamAV-Scan läuft")
+        title = QLabel(_ui_text("ClamAV-Scan läuft"))
         title.setStyleSheet("font-size:19pt;font-weight:800")
-        self.state = QLabel("● Aktiv")
+        self.state = QLabel(_ui_text("● Aktiv"))
         self.state.setStyleSheet("color:#35d46a;font-weight:700")
         head.addWidget(title); head.addStretch(1); head.addWidget(self.state)
         root.addLayout(head)
-        self.target_label = QLabel(f"Scanbereich: {target}")
+        self.target_label = QLabel(_ui_text("Scanbereich:") + f" {target}")
         self.target_label.setWordWrap(True)
         root.addWidget(self.target_label)
-        self.note = QLabel("Root-Rechte werden nur für geschützte Systembereiche benötigt.")
+        self.note = QLabel(_ui_text("Root-Rechte werden nur für geschützte Systembereiche benötigt."))
         self.note.setObjectName("muted")
         root.addWidget(self.note)
         self.bar = QProgressBar(); self.bar.setRange(0, 0)
         root.addWidget(self.bar)
         stats = QHBoxLayout()
-        self.checked_label = QLabel("0\nGeprüfte Dateien")
-        self.threat_label = QLabel("0\nBedrohungen")
-        self.unreadable_label = QLabel("0\nNicht lesbar")
-        self.skipped_label = QLabel("0\nÜbersprungen")
+        self.checked_label = QLabel("0\n" + _ui_text("Geprüfte Dateien"))
+        self.threat_label = QLabel("0\n" + _ui_text("Bedrohungen"))
+        self.unreadable_label = QLabel("0\n" + _ui_text("Nicht lesbar"))
+        self.skipped_label = QLabel("0\n" + _ui_text("Übersprungen"))
         for label in (self.checked_label, self.threat_label, self.unreadable_label, self.skipped_label):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("QLabel{background:#292b3b;border:1px solid #555875;border-radius:9px;padding:12px;font-size:12pt;font-weight:700}")
             stats.addWidget(label)
         root.addLayout(stats)
-        self.current = QLabel("Aktuelle Datei: wird vorbereitet …")
+        self.current = QLabel(_ui_text("Aktuelle Datei: wird vorbereitet …"))
         self.current.setWordWrap(True)
         root.addWidget(self.current)
-        log_title = QLabel("Scan-Protokoll")
+        log_title = QLabel(_ui_text("Scan-Protokoll"))
         log_title.setStyleSheet("font-size:13pt;font-weight:700")
         root.addWidget(log_title)
         self.log = QTextEdit(); self.log.setReadOnly(True)
         self.log.document().setMaximumBlockCount(5000)
         root.addWidget(self.log, 1)
-        self.elapsed = QLabel("Verstrichene Zeit: 00:00")
+        self.elapsed = QLabel(_ui_text("Verstrichene Zeit:") + " 00:00")
         root.addWidget(self.elapsed)
         actions = QHBoxLayout()
         self.actions_layout = actions
-        self.cancel_button = QPushButton("Scan abbrechen")
+        self.cancel_button = QPushButton(_ui_text("Scan abbrechen"))
         self.cancel_button.clicked.connect(self.cancel_scan)
         actions.addWidget(self.cancel_button)
-        self.copy_button = QPushButton("Scan-Ergebnis kopieren")
+        self.copy_button = QPushButton(_ui_text("Scan-Ergebnis kopieren"))
         self.copy_button.clicked.connect(self.copy_result)
         actions.addWidget(self.copy_button)
         actions.addStretch(1)
         # Der Button existiert von Anfang an im Layout, ist aber während
         # des Scans vollständig verborgen. Im Abschluss-Slot wird er eingeblendet.
-        self.close_button = QPushButton("Schließen")
+        self.close_button = QPushButton(_ui_text("Schließen"))
         self.close_button.setMinimumWidth(108)
         self.close_button.setEnabled(False)
         self.close_button.setStyleSheet(
@@ -968,11 +1060,11 @@ class ClamScanMonitor(QDialog):
             self.bar.setFormat("%p%")
         else:
             self.bar.setRange(0, 0)
-            self.bar.setFormat("Scan läuft …")
+            self.bar.setFormat(_ui_text("Scan läuft …"))
 
     def update_elapsed(self):
         seconds = int(time.monotonic() - self.started)
-        self.elapsed.setText(f"Verstrichene Zeit: {seconds//3600:02d}:{(seconds//60)%60:02d}:{seconds%60:02d}")
+        self.elapsed.setText(_ui_text("Verstrichene Zeit:") + f" {seconds//3600:02d}:{(seconds//60)%60:02d}:{seconds%60:02d}")
 
     def add_line(self, line):
         """Kompatibler Einzelzeilen-Einstieg; produktiv kommen Zeilen blockweise."""
@@ -1037,19 +1129,19 @@ class ClamScanMonitor(QDialog):
             self.log.insertPlainText("\n".join(cleaned) + "\n")
         finally:
             self.log.setUpdatesEnabled(True)
-        self.current.setText("Aktuelle Datei: " + (self._current_scan_path or cleaned[-1])[:500])
-        self.checked_label.setText(f"{self.checked:,}\nGeprüfte Dateien".replace(",", "."))
+        self.current.setText(_ui_text("Aktuelle Datei:") + " " + (self._current_scan_path or cleaned[-1])[:500])
+        self.checked_label.setText(f"{self.checked:,}\n" + _ui_text("Geprüfte Dateien").replace(",", "."))
         if self.total_files > 0:
             self.bar.setValue(min(self.checked, self.total_files))
-        self.threat_label.setText(f"{self.threats}\nBedrohungen")
-        self.unreadable_label.setText(f"{self.unreadable}\nNicht lesbar")
-        self.skipped_label.setText(f"{self.skipped}\nÜbersprungen")
+        self.threat_label.setText(f"{self.threats}\n" + _ui_text("Bedrohungen"))
+        self.unreadable_label.setText(f"{self.unreadable}\n" + _ui_text("Nicht lesbar"))
+        self.skipped_label.setText(f"{self.skipped}\n" + _ui_text("Übersprungen"))
 
     def cancel_scan(self):
         if self.cancel_callback:
             self.cancel_button.setEnabled(False)
-            self.cancel_button.setText("Abbruch läuft …")
-            self.note.setText("Der Scan wird abgebrochen …")
+            self.cancel_button.setText(_ui_text("Abbruch läuft …"))
+            self.note.setText(_ui_text("Der Scan wird abgebrochen …"))
             self.cancel_callback()
             # Sofort die Schließen-Aktion anbieten; der Worker beendet parallel ClamAV.
             self._replace_close_button()
@@ -1060,7 +1152,7 @@ class ClamScanMonitor(QDialog):
     def _replace_close_button(self):
         # Kompatibler Name; der Button ist bereits im Layout und wird nur gezeigt.
         self.cancel_button.setEnabled(False)
-        self.cancel_button.setText("Scan abbrechen")
+        self.cancel_button.setText(_ui_text("Scan abbrechen"))
         self.close_button.setEnabled(True)
         self.close_button.setVisible(True)
         self.close_button.show()
@@ -1077,16 +1169,16 @@ class ClamScanMonitor(QDialog):
         )
         self.bar.setRange(0, 1)
         self.bar.setValue(0 if cancelled else 1)
-        self.bar.setFormat("Abgebrochen" if cancelled else "100 %")
-        self.state.setText("● Abgebrochen" if cancelled else "● Abgeschlossen")
+        self.bar.setFormat(_ui_text("Abgebrochen") if cancelled else "100 %")
+        self.state.setText("● " + (_ui_text("Abgebrochen") if cancelled else _ui_text("Abgeschlossen")))
         # This is the authoritative terminal-state command. Reveal the close
         # button immediately here, rather than waiting for later report/log work.
         self._replace_close_button()
         self.state.setStyleSheet("color:#35d46a;font-weight:700")
         self.note.setText(
-            "Scan abgebrochen. Das bisherige Ergebnis steht im Scan-Protokoll."
+            _ui_text("Scan abgebrochen. Das bisherige Ergebnis steht im Scan-Protokoll.")
             if cancelled else
-            "Scan abgeschlossen. Das vollständige Ergebnis steht im Scan-Protokoll."
+            _ui_text("Scan abgeschlossen. Das vollständige Ergebnis steht im Scan-Protokoll.")
         )
         if result:
             # Nur kompakte Status-/Zusammenfassungszeilen ergänzen. Die vollständige
@@ -1115,7 +1207,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("LunaSecurity – Linux Security Suite")
-        self.resize(1320, 900)  # Platz für linke Navigation und Arbeitsbereich
+        self.resize(1433, 900)  # Fenster gegenüber 0.4.30 um ca. 3 cm verbreitert
         self.setMinimumSize(980, 680)
         self.bridge = Bridge()
         self.bridge.show_window.connect(self.show_from_tray)
@@ -1126,6 +1218,8 @@ class MainWindow(QMainWindow):
         self.scan_monitor = None
         self.realtime_worker = None
         self.settings = QSettings("LunaSecurity", "LunaSecurity")
+        global APP_LANGUAGE
+        APP_LANGUAGE = self.settings.value("language", "de")
         self._build_ui()
         self.refresh_security_dashboard()
         self._qt_tray = QSystemTrayIcon(self)
@@ -1145,31 +1239,13 @@ class MainWindow(QMainWindow):
         self._sync_tray_status()
 
     def _build_ui(self):
-        self.setStyleSheet("""
-          QMainWindow,QWidget {background:#111629;color:#e9edfa;font-family:'Noto Sans';font-size:12pt}
-          QFrame#panel {background:#1a2340;border:1px solid #394879;border-radius:12px}
-          QLabel#title {font-size:23pt;font-weight:700;color:#ffffff}
-          QLabel#muted {color:#aab8d5}
-          QPushButton {background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #386ff0,stop:1 #2447c9);color:white;border:1px solid #6484ff;border-radius:9px;padding:7px 11px;font-weight:600;min-height:34px}
-          QPushButton:hover {background:#6544dc;border-color:#a78bfa}
-          QPushButton:disabled {background:#39445f;color:#9aa4b8;border-color:#46516b}
-          QTextEdit {background:#0b1122;border:1px solid #34436f;border-radius:8px;color:#dce5f5}
-          QCheckBox {spacing:8px}
-          QListWidget#sideNav {background:#10142c;border:0;border-right:1px solid #35416c;padding:9px 7px;outline:0}
-          QListWidget#sideNav::item {color:#e5e9fa;padding:11px 9px;margin:3px 2px;border-radius:9px;min-height:22px}
-          QListWidget#sideNav::item:hover {background:#252653}
-          QListWidget#sideNav::item:selected {background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #6937d9,stop:1 #3829a8);border:1px solid #9b78ff;color:white;font-weight:700}
-          QTabBar {qproperty-drawBase:0; height:0; max-height:0}
-          QTabWidget::pane {border:0;top:0}
-          QGroupBox {border:1px solid #34436f;border-radius:9px;margin-top:9px;padding-top:8px}
-          QGroupBox::title {subcontrol-origin:margin;left:10px;padding:0 5px;color:#c5ceef}
-        """)
+        self.apply_theme(self.settings.value("theme", "dark"))
         root=QWidget(); self.setCentralWidget(root)
         shell=QHBoxLayout(root); shell.setContentsMargins(0,0,0,0); shell.setSpacing(0)
         sidebar=QWidget(); sidebar.setObjectName("sidebar"); sidebar.setFixedWidth(356)
-        sidebar.setStyleSheet("QWidget#sidebar{background:#10142c;border-right:1px solid #35416c}")
         side_layout=QVBoxLayout(sidebar); side_layout.setContentsMargins(10,14,10,0); side_layout.setSpacing(8)
         brand=QLabel("◈  LunaSecurity\n     Linux Security Suite")
+        self.brand_label = brand
         brand.setStyleSheet("font-size:14pt;font-weight:700;color:#ffffff;padding:8px 4px 16px 4px")
         side_layout.addWidget(brand)
         self.side_nav=QListWidget(); self.side_nav.setObjectName("sideNav"); self.side_nav.setSpacing(1)
@@ -1202,29 +1278,32 @@ class MainWindow(QMainWindow):
         self.auto_update_check.toggled.connect(lambda value: self.settings.setValue("auto_freshclam", value))
         self.update_button = QPushButton("Virensignatur aktualisieren")
         self.update_button.clicked.connect(self.update_signatures_now)
-        self.signature_version_label = QLabel("Installierte Virensignaturen: " + signature_database_versions())
+        self.signature_version_label = QLabel(_ui_text("Installierte Virensignaturen:") + " " + signature_database_versions())
         self.signature_version_label.setObjectName("muted")
         self.signature_version_label.setWordWrap(True)
         layout.addWidget(self.signature_version_label)
-        realtime_row = QHBoxLayout()
-        self.system_scan_button = QPushButton("Vollständiger Systemscan")
+        maintenance_row = QHBoxLayout()
+        self.system_scan_button = QPushButton("Systemscan")
         self.system_scan_button.setToolTip("Prüft das gesamte Wurzelverzeichnis / einschließlich geschützter Bereiche; Root-Rechte werden über pkexec angefordert.")
         self.system_scan_button.clicked.connect(lambda: self.start_scan("/", elevated=True))
-        realtime_row.addWidget(self.system_scan_button)
-        realtime_row.addWidget(self.update_button)
+        maintenance_row.addWidget(self.system_scan_button)
+        maintenance_row.addWidget(self.update_button)
         self.realtime_button = QPushButton("Echtzeitschutz aktivieren")
         self.realtime_button.clicked.connect(self.toggle_realtime)
-        realtime_row.addWidget(self.realtime_button)
-        realtime_row.addStretch(1)
+        maintenance_row.addWidget(self.realtime_button)
         self.realtime_status = QLabel("Echtzeitschutz: Status wird geprüft …")
         self.realtime_status.setObjectName("muted")
         self.realtime_status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        realtime_row.addWidget(self.realtime_status)
+        maintenance_row.addWidget(self.realtime_status, 1)
         self.realtime_indicator = QLabel("●")
         self.realtime_indicator.setToolTip("Status des ClamAV-Echtzeitschutzes")
         self.realtime_indicator.setStyleSheet("font-size:22px;font-weight:900;color:#e0a52b;padding-left:5px;padding-right:5px;")
-        realtime_row.addWidget(self.realtime_indicator)
-        layout.addLayout(realtime_row)
+        maintenance_row.addWidget(self.realtime_indicator)
+        layout.addLayout(maintenance_row)
+        self._realtime_status_known = False
+        self._realtime_active = False
+        self._realtime_success = False
+        self._realtime_pending_action = "status"
         self.refresh_realtime_status()
         # Der alte Fortschritts-/Abbruchbereich der Hauptansicht wurde entfernt.
         # Statusobjekte bleiben intern für bestehende Nicht-ClamAV-Prüfungen erhalten,
@@ -1460,6 +1539,27 @@ class MainWindow(QMainWindow):
         settings_help = QLabel("Hier findest du alle aktivierbaren Optionen der Hauptoberfläche.")
         settings_help.setObjectName("muted")
         settings_layout.addWidget(settings_help)
+        appearance_group = QGroupBox("Darstellung & Sprache")
+        appearance_layout = QVBoxLayout(appearance_group)
+        language_row = QHBoxLayout()
+        language_row.addWidget(QLabel("Sprache / Language"))
+        self.language_combo = QComboBox()
+        self.language_combo.addItem("Deutsch", "de")
+        self.language_combo.addItem("English", "en")
+        self.language_combo.setCurrentIndex(max(0, self.language_combo.findData(self.settings.value("language", "de"))))
+        self.language_combo.currentIndexChanged.connect(self.change_language)
+        language_row.addWidget(self.language_combo, 1)
+        appearance_layout.addLayout(language_row)
+        theme_row = QHBoxLayout()
+        theme_row.addWidget(QLabel("Design / Theme"))
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItem("Dunkel – Graphit", "dark")
+        self.theme_combo.addItem("Hell – Luna", "light")
+        self.theme_combo.setCurrentIndex(max(0, self.theme_combo.findData(self.settings.value("theme", "dark"))))
+        self.theme_combo.currentIndexChanged.connect(self.change_theme)
+        theme_row.addWidget(self.theme_combo, 1)
+        appearance_layout.addLayout(theme_row)
+        settings_layout.addWidget(appearance_group)
         clam_group = QGroupBox("ClamAV – Scanoptionen")
         clam_layout = QVBoxLayout(clam_group)
         clam_intro = QLabel("Diese Optionen werden bei Datei- und Ordnerscans an ClamAV übergeben.")
@@ -1518,7 +1618,7 @@ class MainWindow(QMainWindow):
             tabs.tabBar().moveTab(events_index, 0)
         # Die Navigation liegt jetzt dauerhaft links; die alte mittlere Tableiste entfällt.
         self._navigation_labels = [
-            ("Sicherheitsereignisse", "◈"),
+            ("Virenschutz", "◈"),
             ("Erweiterte Sicherheit", "✦"),
             ("Quarantäne", "⬡"),
             ("Systemschutz", "▣"),
@@ -1535,7 +1635,150 @@ class MainWindow(QMainWindow):
         self.side_nav.setCurrentRow(0)
         layout.addWidget(tabs, 1)
         note=QLabel("LunaSecurity führt Prüfungen nachvollziehbar aus. Rootkit- und Integritätsprüfungen können Administratorrechte benötigen. Funde werden nicht automatisch gelöscht."); note.setObjectName("muted"); note.setWordWrap(True); layout.addWidget(note)
+        self.apply_theme(self.settings.value("theme", "dark"))
+        self.retranslate_ui()
 
+
+    def change_theme(self, _index=None):
+        theme = self.theme_combo.currentData()
+        self.settings.setValue("theme", theme)
+        self.apply_theme(theme)
+
+    def apply_theme(self, theme=None):
+        theme = theme or self.settings.value("theme", "dark")
+        if theme == "light":
+            css = """
+            QMainWindow,QWidget {background:#f3f5fb;color:#20263a;font-family:'Noto Sans';font-size:12pt}
+            QFrame#panel {background:#ffffff;border:1px solid #d7dced;border-radius:12px}
+            QLabel#title {font-size:23pt;font-weight:700;color:#20263a}
+            QLabel#muted {color:#59647d}
+            QPushButton {background:#526fe0;color:white;border:1px solid #718cf4;border-radius:9px;padding:7px 11px;font-weight:600;min-height:34px}
+            QPushButton:hover {background:#6848d8;border-color:#8b72ef}
+            QPushButton:disabled {background:#dce1ed;color:#8992a6;border-color:#cbd2e1}
+            QTextEdit,QLineEdit,QComboBox,QSpinBox,QTableWidget,QListWidget {background:#ffffff;color:#20263a;border:1px solid #cbd3e5;border-radius:6px;selection-background-color:#dcd5ff;selection-color:#24203a}
+            QCheckBox {spacing:8px;color:#20263a}
+            QGroupBox {border:1px solid #cbd3e5;border-radius:9px;margin-top:9px;padding-top:8px;color:#303951}
+            QGroupBox::title {subcontrol-origin:margin;left:10px;padding:0 5px;color:#4d5872}
+            QProgressBar {background:#e6eaf3;color:#20263a;border:1px solid #cbd3e5;border-radius:6px;text-align:center}
+            QProgressBar::chunk {background:#6651d9;border-radius:5px}
+            """
+            sidebar = self.findChild(QWidget, "sidebar")
+            if sidebar: sidebar.setStyleSheet("QWidget#sidebar{background:#e6e9f4;border-right:1px solid #cbd3e5}")
+            if hasattr(self, "brand_label"):
+                self.brand_label.setStyleSheet("font-size:14pt;font-weight:700;color:#28314b;padding:8px 4px 16px 4px")
+            if hasattr(self, "side_nav"):
+                self.side_nav.setStyleSheet("QListWidget#sideNav{background:#e6e9f4;border:0;border-right:1px solid #cbd3e5;padding:9px 7px;outline:0} QListWidget#sideNav::item{color:#303951;padding:11px 9px;margin:3px 2px;border-radius:9px;min-height:22px} QListWidget#sideNav::item:hover{background:#d8dced} QListWidget#sideNav::item:selected{background:#ddd5ff;border:1px solid #927be8;color:#352477;font-weight:700}")
+        else:
+            css = """
+            QMainWindow,QWidget {background:#111629;color:#e9edfa;font-family:'Noto Sans';font-size:12pt}
+            QFrame#panel {background:#1a2340;border:1px solid #394879;border-radius:12px}
+            QLabel#title {font-size:23pt;font-weight:700;color:#ffffff}
+            QLabel#muted {color:#aab8d5}
+            QPushButton {background:#315bd5;color:white;border:1px solid #6484ff;border-radius:9px;padding:7px 11px;font-weight:600;min-height:34px}
+            QPushButton:hover {background:#6544dc;border-color:#a78bfa}
+            QPushButton:disabled {background:#39445f;color:#9aa4b8;border-color:#46516b}
+            QTextEdit,QLineEdit,QComboBox,QSpinBox,QTableWidget,QListWidget {background:#0b1122;color:#e9edfa;border:1px solid #34436f;border-radius:6px;selection-background-color:#49358d;selection-color:#ffffff}
+            QCheckBox {spacing:8px;color:#e9edfa}
+            QGroupBox {border:1px solid #34436f;border-radius:9px;margin-top:9px;padding-top:8px;color:#e9edfa}
+            QGroupBox::title {subcontrol-origin:margin;left:10px;padding:0 5px;color:#c5ceef}
+            QProgressBar {background:#0b1122;color:#e9edfa;border:1px solid #34436f;border-radius:6px;text-align:center}
+            QProgressBar::chunk {background:#6847dc;border-radius:5px}
+            """
+            sidebar = self.findChild(QWidget, "sidebar")
+            if sidebar: sidebar.setStyleSheet("QWidget#sidebar{background:#10142c;border-right:1px solid #35416c}")
+            if hasattr(self, "brand_label"):
+                self.brand_label.setStyleSheet("font-size:14pt;font-weight:700;color:#ffffff;padding:8px 4px 16px 4px")
+            if hasattr(self, "side_nav"):
+                self.side_nav.setStyleSheet("QListWidget#sideNav{background:#10142c;border:0;border-right:1px solid #35416c;padding:9px 7px;outline:0} QListWidget#sideNav::item{color:#e5e9fa;padding:11px 9px;margin:3px 2px;border-radius:9px;min-height:22px} QListWidget#sideNav::item:hover{background:#252653} QListWidget#sideNav::item:selected{background:#49358d;border:1px solid #9b78ff;color:white;font-weight:700}")
+        self.setStyleSheet(css)
+
+    def change_language(self, _index=None):
+        global APP_LANGUAGE
+        APP_LANGUAGE = self.language_combo.currentData()
+        self.settings.setValue("language", APP_LANGUAGE)
+        app = QApplication.instance()
+        global APP_QT_TRANSLATOR, APP_DIALOG_BUTTON_FIX, APP_EN_DIALOG_FIX
+        if app is not None:
+            if APP_LANGUAGE == "en":
+                if APP_QT_TRANSLATOR is not None:
+                    app.removeTranslator(APP_QT_TRANSLATOR)
+                if APP_DIALOG_BUTTON_FIX is not None:
+                    app.removeEventFilter(APP_DIALOG_BUTTON_FIX)
+                if APP_EN_DIALOG_FIX is None:
+                    APP_EN_DIALOG_FIX = EnglishMessageBoxFix(app)
+                app.installEventFilter(APP_EN_DIALOG_FIX)
+            else:
+                if APP_EN_DIALOG_FIX is not None:
+                    app.removeEventFilter(APP_EN_DIALOG_FIX)
+                if APP_QT_TRANSLATOR is None:
+                    APP_QT_TRANSLATOR = GermanQtTranslator(app)
+                app.installTranslator(APP_QT_TRANSLATOR)
+                if APP_DIALOG_BUTTON_FIX is None:
+                    APP_DIALOG_BUTTON_FIX = GermanDialogButtonFix(app)
+                app.installEventFilter(APP_DIALOG_BUTTON_FIX)
+            QLocale.setDefault(QLocale(QLocale.Language.English if APP_LANGUAGE == "en" else QLocale.Language.German,
+                                       QLocale.Country.UnitedStates if APP_LANGUAGE == "en" else QLocale.Country.Germany))
+        self.retranslate_ui()
+
+    def retranslate_ui(self):
+        language = self.settings.value("language", "de")
+        mapping = EN_TRANSLATIONS if language == "en" else {}
+        for widget in self.findChildren(QWidget):
+            if isinstance(widget, QGroupBox):
+                if not widget.property("_luna_source_text"):
+                    widget.setProperty("_luna_source_text", widget.title())
+                source_text = widget.property("_luna_source_text")
+                widget.setTitle(mapping.get(source_text, source_text))
+                if widget.toolTip():
+                    if not widget.property("_luna_source_tooltip"):
+                        widget.setProperty("_luna_source_tooltip", widget.toolTip())
+                    widget.setToolTip(mapping.get(widget.property("_luna_source_tooltip"), widget.property("_luna_source_tooltip")))
+            elif isinstance(widget, (QLabel, QPushButton, QCheckBox)):
+                if not widget.property("_luna_source_text"):
+                    widget.setProperty("_luna_source_text", widget.text())
+                source_text = widget.property("_luna_source_text")
+                widget.setText(mapping.get(source_text, source_text))
+                if widget.toolTip():
+                    if not widget.property("_luna_source_tooltip"):
+                        widget.setProperty("_luna_source_tooltip", widget.toolTip())
+                    widget.setToolTip(mapping.get(widget.property("_luna_source_tooltip"), widget.property("_luna_source_tooltip")))
+            elif isinstance(widget, QComboBox) and widget is not self.language_combo and widget is not self.theme_combo:
+                if not widget.property("_luna_source_items"):
+                    widget.setProperty("_luna_source_items", [widget.itemText(i) for i in range(widget.count())])
+                items = widget.property("_luna_source_items")
+                current = widget.currentData()
+                widget.blockSignals(True)
+                for i, source in enumerate(items):
+                    widget.setItemText(i, mapping.get(source, source))
+                idx = widget.findData(current)
+                if idx >= 0: widget.setCurrentIndex(idx)
+                widget.blockSignals(False)
+        if hasattr(self, "theme_combo"):
+            self.theme_combo.setItemText(0, "Dark – Graphite" if language == "en" else "Dunkel – Graphit")
+            self.theme_combo.setItemText(1, "Light – Luna" if language == "en" else "Hell – Luna")
+        if hasattr(self, "side_nav"):
+            labels = ["Virus protection","Advanced security","Quarantine","System protection","Repair & recovery","Network","File tools","Alerts & audio","Settings"] if language == "en" else [x[0] for x in self._navigation_labels]
+            for i, label in enumerate(labels):
+                item = self.side_nav.item(i)
+                if item: item.setText(f"{self._navigation_labels[i][1]}   {label}")
+        # Laufzeitstatus wird nicht aus dem gerade angezeigten (übersetzten)
+        # Label abgeleitet, sondern aus dem zuletzt bestätigten Dienstzustand.
+        if hasattr(self, "realtime_button"):
+            pending = getattr(self, "_realtime_pending_action", None)
+            if pending:
+                pending_text = ("Echtzeitschutz: Hintergrundauftrag läuft …" if pending != "status"
+                                else "Echtzeitschutz: Status wird geprüft …")
+                self.realtime_status.setText(_ui_text(pending_text))
+                self.realtime_button.setEnabled(False)
+            elif getattr(self, "_realtime_status_known", False):
+                active = self._realtime_active
+                self.realtime_status.setText(_ui_text("Echtzeitschutz:") + " " + _ui_text("Aktiv" if active else "Aus"))
+                self.realtime_button.setText(_ui_text("Echtzeitschutz deaktivieren" if active else "Echtzeitschutz aktivieren"))
+                self.realtime_button.setEnabled(True)
+            else:
+                self.realtime_status.setText(_ui_text("Echtzeitschutz: Status wird geprüft …"))
+                self.realtime_button.setEnabled(False)
+        self.setWindowTitle("LunaSecurity – Linux Security Suite")
     def refresh_audio_devices(self):
         saved = self.settings.value("audio_device", "")
         pactl = shutil.which("pactl")
@@ -1734,21 +1977,21 @@ class MainWindow(QMainWindow):
             # Explizite Auswahl statt Ja/Nein-Frage: auf Linux/GTK-Desktops
             # kann der native Dialog sonst unsichtbar bleiben oder unklar wirken.
             chooser = QMessageBox(self)
-            chooser.setWindowTitle("Scan-Ziel auswählen")
-            chooser.setText("Was möchtest du scannen?")
-            file_btn = chooser.addButton("Datei auswählen", QMessageBox.ButtonRole.AcceptRole)
-            folder_btn = chooser.addButton("Ordner auswählen", QMessageBox.ButtonRole.ActionRole)
+            chooser.setWindowTitle(_ui_text("Scan-Ziel auswählen"))
+            chooser.setText(_ui_text("Was möchtest du scannen?"))
+            file_btn = chooser.addButton(_ui_text("Datei auswählen"), QMessageBox.ButtonRole.AcceptRole)
+            folder_btn = chooser.addButton(_ui_text("Ordner auswählen"), QMessageBox.ButtonRole.ActionRole)
             chooser.addButton(QMessageBox.StandardButton.Cancel)
             chooser.exec()
             clicked = chooser.clickedButton()
             options = QFileDialog.Option.DontUseNativeDialog
             if clicked is file_btn:
-                target, _ = _choose_file(self, "Datei zum Scannen auswählen", Path.home())
+                target, _ = _choose_file(self, _ui_text("Datei zum Scannen auswählen"), Path.home())
                 if not target:
                     self.log.append("Dateiauswahl abgebrochen; kein Scan gestartet.")
                     return
             elif clicked is folder_btn:
-                target = _choose_directory(self, "Ordner zum Scannen auswählen", Path.home())
+                target = _choose_directory(self, _ui_text("Ordner zum Scannen auswählen"), Path.home())
                 if not target:
                     self.log.append("Ordnerauswahl abgebrochen; kein Scan gestartet.")
                     return
@@ -1819,7 +2062,7 @@ class MainWindow(QMainWindow):
                     return
                 elevated = True
 
-        self.scan_button.setEnabled(False); self.home_button.setEnabled(False); self.system_scan_button.setEnabled(False); self.update_button.setEnabled(False); self.progress.show(); self.cancel_scan_button.setEnabled(True)
+        self.scan_button.setEnabled(False); self.home_button.setEnabled(False); self.system_scan_button.setEnabled(False); self.update_button.setEnabled(False); self.progress.hide(); self.cancel_scan_button.setEnabled(True)
         self.log.append(f"\nScan gestartet: {target_label}")
         scan_options = {
             "detect_pua": self.detect_pua_check.isChecked(),
@@ -1897,7 +2140,7 @@ class MainWindow(QMainWindow):
         if not os.path.isfile(helper):
             return "Der LunaSecurity-Helfer für fail2ban fehlt."
         if worker is not None:
-            return worker.run_command([pkexec, helper], 35)
+            return _ui_text(worker.run_command([pkexec, helper], 35))
         result = subprocess.run([pkexec, helper], capture_output=True, text=True, timeout=35)
         return (result.stdout + "\\n" + result.stderr).strip()
 
@@ -1988,9 +2231,12 @@ class MainWindow(QMainWindow):
         _background_workers.add(worker)
         worker.result.connect(self.realtime_finished)
         worker.finished.connect(lambda w=worker: _background_workers.discard(w))
-        if action != "status":
-            self.realtime_button.setEnabled(False)
-            self.realtime_status.setText("Echtzeitschutz: Hintergrundauftrag läuft …")
+        self._realtime_pending_action = action
+        self.realtime_button.setEnabled(False)
+        if action == "status":
+            self.realtime_status.setText(_ui_text("Echtzeitschutz: Status wird geprüft …"))
+        else:
+            self.realtime_status.setText(_ui_text("Echtzeitschutz: Hintergrundauftrag läuft …"))
             self.log.append("\nEchtzeitschutz wird im Hintergrund " + ("aktiviert …" if action == "enable" else "deaktiviert …"))
         worker.start()
 
@@ -2000,21 +2246,27 @@ class MainWindow(QMainWindow):
     def toggle_realtime(self):
         if self.realtime_worker and self.realtime_worker.isRunning():
             return
-        active = self.realtime_status.text().endswith("Aktiv")
-        self._start_realtime_worker("disable" if active else "enable")
+        if not getattr(self, "_realtime_status_known", False):
+            self.refresh_realtime_status()
+            return
+        self._start_realtime_worker("disable" if self._realtime_active else "enable")
 
     @Slot(str, bool, bool)
     def realtime_finished(self, message, active, success):
-        self.realtime_status.setText("Echtzeitschutz: " + ("Aktiv" if active else ("Aus" if success else "Status unklar")))
+        self._realtime_pending_action = None
+        self._realtime_status_known = bool(success)
+        self._realtime_active = bool(active) if success else False
+        self._realtime_success = bool(success)
+        self.realtime_status.setText(_ui_text("Echtzeitschutz:") + " " + _ui_text("Aktiv" if active else ("Aus" if success else "Status unklar")))
         if success:
             self.realtime_indicator.setStyleSheet(
                 "font-size:22px;font-weight:900;color:" + ("#28e66b" if active else "#ff3b45") + ";padding-left:5px;padding-right:5px;"
             )
-            self.realtime_indicator.setToolTip("Echtzeitschutz ist aktiv" if active else "Echtzeitschutz ist ausgeschaltet")
+            self.realtime_indicator.setToolTip(_ui_text("Echtzeitschutz ist aktiv" if active else "Echtzeitschutz ist ausgeschaltet"))
         else:
             self.realtime_indicator.setStyleSheet("font-size:22px;font-weight:900;color:#e0a52b;padding-left:5px;padding-right:5px;")
-            self.realtime_indicator.setToolTip("Status des Echtzeitschutzes konnte nicht ermittelt werden")
-        self.realtime_button.setText("Echtzeitschutz deaktivieren" if active else "Echtzeitschutz aktivieren")
+            self.realtime_indicator.setToolTip(_ui_text("Status des Echtzeitschutzes konnte nicht ermittelt werden"))
+        self.realtime_button.setText(_ui_text("Echtzeitschutz deaktivieren" if active else "Echtzeitschutz aktivieren"))
         self.realtime_button.setEnabled(True)
         if message and message != "Status geprüft.":
             self.log.append(message)
@@ -2078,7 +2330,7 @@ class MainWindow(QMainWindow):
             entry.setData(257, dict(item))
             self.events_view.addItem(entry)
         if not events:
-            self.events_view.addItem("Noch keine erkannten Bedrohungen gespeichert.")
+            self.events_view.addItem(_ui_text("Noch keine erkannten Bedrohungen gespeichert."))
             self.alert_banner.hide()
         else:
             self.alert_banner.setText(f"⚠ {len(events)} gespeicherte Sicherheitsereignisse – Details im Tab „Sicherheitsereignisse“")
@@ -2240,21 +2492,22 @@ class MainWindow(QMainWindow):
         if self.worker and self.worker.isRunning():
             QMessageBox.information(self, "LunaSecurity", "Es läuft bereits eine Sicherheitsaufgabe.")
             return
-        self.scan_button.setEnabled(False); self.home_button.setEnabled(False); self.system_scan_button.setEnabled(False); self.update_button.setEnabled(False); self.progress.show()
-        self.log.append("\nSignaturaktualisierung mit freshclam gestartet …")
+        # freshclam läuft bereits in einem QThread. Nur den Aktualisieren-Knopf
+        # sperren; die restliche Oberfläche bleibt sichtbar und bedienbar.
+        self.update_button.setEnabled(False)
+        self.progress.hide()
+        self.log.append("\nSignaturaktualisierung im Hintergrund gestartet …")
         self.worker = ScanWorker(update_only=True)
         self.worker.result.connect(self.signature_update_finished)
         self.worker.start()
 
     def signature_update_finished(self, text):
         self.progress.hide()
-        self.scan_button.setEnabled(True); self.home_button.setEnabled(True)
-        self.system_scan_button.setEnabled(True); self.update_button.setEnabled(True)
-        self.cancel_scan_button.setEnabled(False)
+        self.update_button.setEnabled(True)
         self.log.append(text)
-        self.log.append("Signaturaktualisierung beendet.")
-        self.signature_version_label.setText("Installierte Virensignaturen: " + signature_database_versions())
-        self._show_test_report("Signaturaktualisierung", text)
+        self.log.append("Signaturaktualisierung im Hintergrund beendet.")
+        self.signature_version_label.setText(_ui_text("Installierte Virensignaturen:") + " " + signature_database_versions())
+        # Kein modaler Ergebnisdialog: Status und vollständige Ausgabe stehen im Protokoll.
 
     def _repair_backup_dir(self):
         path = Path.home() / ".local" / "share" / "LunaSecurity" / "repair-backups" / "autostart"
@@ -2461,7 +2714,7 @@ class MainWindow(QMainWindow):
         if "Scan wurde vom Benutzer abgebrochen" not in text:
             self.report_detections(text)
         self.log.append("Scan-Aufgabe beendet.")
-        self.signature_version_label.setText("Installierte Virensignaturen: " + signature_database_versions())
+        self.signature_version_label.setText(_ui_text("Installierte Virensignaturen:") + " " + signature_database_versions())
         # Ergebnis, Kopieren und Schließen sind im gemeinsamen ClamAV-Fenster.
 
     def _show_test_report(self, title, result):
@@ -2524,7 +2777,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "LunaSecurity", "Es läuft bereits eine Sicherheitsprüfung.")
             return
         self.log.append(f"\n{title} gestartet … (Hintergrund)")
-        self.progress.show()
+        self.progress.hide()
         if cancellable:
             self.cancel_scan_button.setText("Prüfung abbrechen")
             self.cancel_scan_button.setEnabled(True)
@@ -2788,12 +3041,21 @@ def main():
     # Eigene Qt-Dialoge erzwingen: native GTK/Plattformdialoge können unabhängig
     # von der Sprache der App englische Beschriftungen anzeigen.
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeDialogs, True)
-    QLocale.setDefault(QLocale(QLocale.Language.German, QLocale.Country.Germany))
     app=QApplication(qt_args); app.setApplicationName("LunaSecurity"); app.setQuitOnLastWindowClosed(False)
-    german_translator = GermanQtTranslator(app)
-    app.installTranslator(german_translator)
-    dialog_button_fix = GermanDialogButtonFix(app)
-    app.installEventFilter(dialog_button_fix)
+    startup_settings = QSettings("LunaSecurity", "LunaSecurity")
+    startup_language = startup_settings.value("language", "de")
+    QLocale.setDefault(QLocale(QLocale.Language.English if startup_language == "en" else QLocale.Language.German,
+                               QLocale.Country.UnitedStates if startup_language == "en" else QLocale.Country.Germany))
+    global APP_QT_TRANSLATOR, APP_DIALOG_BUTTON_FIX, APP_EN_DIALOG_FIX, APP_LANGUAGE
+    APP_LANGUAGE = startup_language
+    if startup_language == "en":
+        APP_EN_DIALOG_FIX = EnglishMessageBoxFix(app)
+        app.installEventFilter(APP_EN_DIALOG_FIX)
+    else:
+        APP_QT_TRANSLATOR = GermanQtTranslator(app)
+        app.installTranslator(APP_QT_TRANSLATOR)
+        APP_DIALOG_BUTTON_FIX = GermanDialogButtonFix(app)
+        app.installEventFilter(APP_DIALOG_BUTTON_FIX)
     window=MainWindow()
     start_hidden = hidden_arg or window.settings.value("start_in_tray", False, type=bool)
     if start_hidden and window.tray:

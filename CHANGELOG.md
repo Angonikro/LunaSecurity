@@ -1,5 +1,27 @@
 # Änderungsprotokoll LunaSecurity
 
+## Version 0.4.30
+- Echtzeitschutz-Schaltfläche, Statusanzeige und Statuspunkt wieder in die bestehende Aktionszeile integriert; keine zusätzliche Zeile.
+- Beschriftung „Vollständiger Systemscan“ zu „Systemscan“ verkürzt, damit die Aktionszeile besser passt.
+
+- Echtzeitschutz-Anzeige beim Sprachwechsel stabilisiert: Status und Schaltfläche werden aus dem bestätigten Dienstzustand neu aufgebaut, nicht aus übersetzten Beschriftungen abgeleitet.
+- Echtzeitschutz erhält eine eigene Bedienzeile; Statusmeldung und Statuspunkt werden nicht mehr von den Scan-/Update-Schaltflächen zusammengedrückt.
+- Während einer Statusabfrage oder Aktivierung/Deaktivierung bleibt die Schaltfläche gesperrt und zeigt den passenden Prüf- bzw. Hintergrundstatus.
+- Scan-Dialog: Schaltfläche „Schließen“ wird auch bei nachträglichem Einblenden korrekt übersetzt.
+- Echtzeitschutz: Status, Aktivieren/Deaktivieren, Hintergrundstatus und Tooltips folgen der gewählten Sprache.
+- Virenschutz-Hauptseite: Signaturstatus und Meldung bei leerer Ereignisliste werden ebenfalls übersetzt.
+
+- Virenschutz als ersten Hauptnavigationspunkt benannt und die englischen Texte der Scan-Zielauswahl sowie der leeren Ereignisliste vervollständigt.
+- Verwaiste, indeterminierte Fortschrittsanzeige im Hauptfenster deaktiviert; der Fortschritt bleibt ausschließlich im jeweiligen Prüfungsdialog sichtbar.
+- Englische Oberfläche vervollständigt: dynamische ClamAV-Scanfenster, Scan-Zielauswahl, Fortschrittsdialoge und fail2ban-Statusmeldungen werden ebenfalls übersetzt.
+- Fehler beim Start mit QGroupBox in der Sprachumschaltung behoben (Gruppentitel werden korrekt über title()/setTitle() verarbeitet).
+- Sprachwahl Deutsch/Englisch mit dauerhaft gespeicherter Einstellung ergänzt.
+- Helles Luna-Design zusätzlich zum dunklen Graphit-Design ergänzt; Wechsel ohne Neustart.
+- Virensignatur-Aktualisierung läuft im Hintergrund; die Oberfläche bleibt bedienbar.
+- Kein blockierender Ergebnisdialog nach der Aktualisierung; vollständige Ausgabe und Status bleiben im LunaSecurity-Protokoll.
+- Die vorhandene Option für automatische Aktualisierung vor Scans bleibt unverändert.
+
+
 ## Version 0.4.29
 - Signalübergabe im gemeinsamen Prüfungsfenster korrigiert: Der Worker sendet Titel und Ergebnis; das Fenster übernimmt jetzt ausdrücklich das zweite Signalargument.
 - Vollständige Prüfberichte bleiben nach Abschluss im gemeinsamen Fenster sichtbar.
