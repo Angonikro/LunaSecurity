@@ -137,14 +137,18 @@ Lade die zip Datei runter, LunaSecurity_0.4.31_GITHUB.zip
 
 Wechsle in den Download-Ordner und entpacke das Archiv:
 
+```bash
 cd ~/Downloads
 unzip LunaSecurity_0.4.31_GITHUB.zip
+```
 
 LunaSecurity starten
 
 Im Projektverzeichnis folgenden Befehl ausführen:
 
+```bash
 python3 -m lunasecurity
+```
 
 ## Erster Start
 
