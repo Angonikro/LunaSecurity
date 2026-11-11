@@ -1,4 +1,80 @@
-# LunaSecurity – Änderungsprotokoll
+# Änderungsprotokoll LunaSecurity
+
+## Version 0.4.29
+- Signalübergabe im gemeinsamen Prüfungsfenster korrigiert: Der Worker sendet Titel und Ergebnis; das Fenster übernimmt jetzt ausdrücklich das zweite Signalargument.
+- Vollständige Prüfberichte bleiben nach Abschluss im gemeinsamen Fenster sichtbar.
+
+
+## Version 0.4.28
+- Doppelte Ergebnisfenster für Hintergrundprüfungen entfernt.
+- Das gemeinsame Prüfungsfenster zeigt den vollständigen Abschlussbericht; Lynis, Rootkit, fail2ban und Netzwerkprüfung öffnen kein zweites Ergebnisfenster.
+- Versionsnummer in der Anwendung, im DEB-Build, README und CHANGELOG synchronisiert.
+
+
+## Version 0.4.27
+- Separate alte Ergebnis- und Informationsfenster nach Sicherheitsprüfungen entfernt.
+- Das neue Prüfungsfenster zeigt nach Abschluss direkt das vollständige Ergebnis und bleibt das einzige Ergebnisfenster.
+- Rootkit-, fail2ban-, Lynis- und Netzwerkprüfungen öffnen keine zusätzlichen Ergebnisdialoge mehr.
+
+
+## Version 0.4.26
+- Eigenes Prüfungsfenster für alle Nicht-ClamAV-Hintergrundprüfungen ergänzt.
+- Laufende Kommandoausgaben werden fortlaufend im Fenster angezeigt.
+- Abbrechen, Ergebnis kopieren und Schließen nach Abschluss ergänzt.
+- ClamAV zeigt Prozentfortschritt auf Basis exakt derselben vorbereiteten Dateiliste, die anschließend gescannt wird.
+- Nicht-ClamAV-Prüfungen zeigen laufende Kommandoausgaben; solange das jeweilige Prüfprogramm keine verlässlichen Einzeldatei-Zähler liefert, bleibt ihr Balken bewusst im Aktivitätsmodus.
+- Das bestehende ClamAV-Fenster bleibt erhalten; seine Fortschrittsanzeige wurde um den echten Dateiumfang ergänzt.
+
+# Änderungsprotokoll
+
+## 0.4.25
+- Fehlenden Import des Python-Moduls `re` ergänzt. Dadurch kann die Scanabschluss-Auswertung ohne NameError ausgeführt werden.
+
+# Änderungsprotokoll
+
+## 0.4.24
+- Scanumfang-Zeile wird aus dem Scanfenster ins Hauptprotokoll übernommen.
+- Falls die Zeile oder das Scanfenster fehlt, erscheint eine eindeutige Fehlermeldung im Hauptprotokoll.
+
+# Änderungsprotokoll – LunaSecurity
+
+## Version 0.4.10
+- Im Scanfenster die Meldung beim angeforderten Abbruch direkt auf „Scan wurde erfolgreich abgebrochen.“ geändert. Keine Änderung an Scan- oder Abbruchlogik.
+
+## Version 0.3.99
+- ClamAV-Ausgabe wird blockweise an die Oberfläche übergeben, damit sehr ausführliche Scans die GUI nicht durch tausende Einzelsignale ausbremsen.
+- Live-Protokoll wird effizient blockweise eingefügt und auf die letzten 5.000 Zeilen begrenzt; die vollständige Ausgabe bleibt für die Ergebnis- und Fundauswertung erhalten.
+- „Nicht lesbar“ zählt fehlgeschlagene Lesezugriffe wie `fmap_readpage: pread fail/error` pro betroffener Datei nur einmal.
+- „Übersprungen“ zählt ausschließlich explizite Skip-/Exclude-Meldungen und wird nicht aus Lesefehlern abgeleitet.
+- Geprüfte Dateien werden je Pfad dedupliziert, damit `Scanning`- und `: OK`-Zeilen nicht doppelt zählen.
+
+
+## Version 0.3.97
+
+- Der Schließen-Button ist während des laufenden Scans wieder sichtbar, bleibt aber grau und deaktiviert.
+- Die bewährte Abschlusslogik aus 0.3.96 bleibt erhalten: Sobald „Abgeschlossen“ oder „Abgebrochen“ gesetzt wird, wird derselbe Button aktiviert und blau.
+
+## Version 0.3.96
+
+- Das Einblenden des Schließen-Buttons ist direkt an dieselbe Code-Stelle gekoppelt, die den Status „Abgeschlossen“ bzw. „Abgebrochen“ setzt.
+- Der Button wird unmittelbar beim Setzen des Endstatus eingeblendet, bevor Protokoll- und Berichtsnachbearbeitung läuft.
+
+## Version 0.3.95
+
+- Der blaue Schließen-Button wird nach regulärem Scanabschluss zusätzlich verzögert über den Qt-Ereigniszyklus eingeblendet und sein Sichtbarkeitszustand erneut gesetzt.
+- Nach Scanabbruch bleibt die sofortige Einblendung erhalten.
+
+## Version 0.3.94
+
+- Nach Klick auf „Scan abbrechen“ wird der blaue, aktivierte „Schließen“-Button unmittelbar eingeblendet, während der bestehende Abbruchaufruf den ClamAV-Prozess beendet.
+- Nach regulärem Scanende wird derselbe Button ebenfalls eingeblendet.
+- Die Funktion des Abbruchbuttons bleibt erhalten.
+
+## Version 0.3.82
+
+- Einheitliches Live-Fenster für Datei-, Ordner-, Home- und vollständige Systemscans mit aktuellem ClamAV-Ausgabeprotokoll, Statuszählern und Laufzeitanzeige.
+- Vollständiger Systemscan startet jetzt ausdrücklich das Wurzelverzeichnis `/` über `pkexec`; LunaSecurity selbst läuft weiterhin ohne Root-Rechte.
+- ClamAV-Ausgabe wird während des Scans fortlaufend an die Oberfläche übergeben.
 
 ## Version 0.3.81
 
@@ -88,7 +164,7 @@
 # LunaSecurity – Änderungsprotokoll
 
 ## Version 0.3.67
-- Sichtbares `\\n` im LunaSecurity-Seitenleistenkopf durch echten Zeilenumbruch ersetzt.
+- Sichtbares `\\n\n## Version 0.4.12\n- Ordner innerhalb des persönlichen Home-Verzeichnisses werden ohne Root-Rechte gescannt.\n- Bei jedem ausgewählten Ordner außerhalb des Home-Verzeichnisses fragt LunaSecurity vor dem Scan, ob Root-Rechte über pkexec verwendet werden sollen.\n- Die Regel gilt unabhängig von den aktuell gesetzten Zugriffsbits; Scan- und Abbruchlogik bleiben unverändert.\n\n` im LunaSecurity-Seitenleistenkopf durch echten Zeilenumbruch ersetzt.
 - Linke Seitenleiste um rund 4 cm auf 356 Qt-Pixel verbreitert; Gesamtfenstergröße bleibt unverändert.
 - Deutlich sichtbare Statusleuchte ergänzt: grün bei aktivem Echtzeitschutz, rot bei ausgeschaltetem Schutz, gelb bei unbekanntem Status.
 - Versionsanzeige in der Anwendung auf 0.3.67 aktualisiert.

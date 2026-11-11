@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-VERSION=0.3.81
-BUILD="$ROOT/build/lunasecurity"
-DIST="$ROOT/dist"
+VERSION=0.4.29
+BUILD="/mnt/data/lunasecurity_build_0.4.29"
+DIST="/mnt/data/lunasecurity_dist_0.4.29"
 rm -rf "$BUILD" "$DIST"
 mkdir -p "$BUILD/DEBIAN" "$BUILD/usr/share/doc/lunasecurity" "$BUILD/usr/lib/lunasecurity/lunasecurity" "$BUILD/usr/bin" "$BUILD/usr/share/applications" "$BUILD/usr/share/pixmaps" "$BUILD/usr/lib/systemd/system" "$BUILD/usr/lib/lunasecurity" "$DIST"
 cp -a "$ROOT/lunasecurity/"*.py "$BUILD/usr/lib/lunasecurity/lunasecurity/"

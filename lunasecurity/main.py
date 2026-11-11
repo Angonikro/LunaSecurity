@@ -1,8 +1,8 @@
 from __future__ import annotations
-import os, shutil, subprocess, sys, threading, time, json, wave, tempfile, struct, math, signal
+import os, shutil, subprocess, sys, threading, time, json, wave, tempfile, struct, math, signal, re
 from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot, QThread, QSettings, QTimer, QTranslator, QLocale, Qt, QEvent, QPoint, QMarginsF
-from PySide6.QtGui import QAction, QIcon, QTextDocument, QTextOption, QFont, QPainter, QLinearGradient, QRadialGradient, QColor, QPolygon, QPen, QBrush
+from PySide6.QtGui import QAction, QIcon, QTextDocument, QTextOption, QFont, QPainter, QLinearGradient, QRadialGradient, QColor, QPolygon, QPen, QBrush, QTextCursor
 from PySide6.QtPrintSupport import QPrinter
 from PySide6.QtGui import QPageSize, QPageLayout
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QDialog,
@@ -249,6 +249,7 @@ class RealtimeWorker(QThread):
 
 class ModuleWorker(QThread):
     result = Signal(str, str)
+    output = Signal(str)
     def __init__(self, title, function, cancellable=False):
         super().__init__()
         self.title = title
@@ -333,22 +334,46 @@ class ModuleWorker(QThread):
         if self._cancel_event.is_set():
             return "Prüfung vom Benutzer abgebrochen."
         try:
-            process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                       text=True, start_new_session=True)
+            process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       text=True, bufsize=1, start_new_session=True)
             self.set_process(process)
+            lines = []
+            started = time.monotonic()
             try:
-                stdout, stderr = process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                self._terminate_process(process)
-                stdout, stderr = process.communicate()
-                return f"Zeitüberschreitung nach {timeout} Sekunden. Prüfung beendet."
+                import select
+                while True:
+                    if self._cancel_event.is_set():
+                        self._terminate_process(process)
+                        break
+                    if time.monotonic() - started > timeout:
+                        self._terminate_process(process)
+                        return f"Zeitüberschreitung nach {timeout} Sekunden. Prüfung beendet.\n" + "".join(lines)
+                    ready, _, _ = select.select([process.stdout], [], [], 0.15)
+                    if ready:
+                        line = process.stdout.readline()
+                        if line:
+                            lines.append(line)
+                            self.output.emit(line.rstrip("\r\n"))
+                        elif process.poll() is not None:
+                            break
+                    elif process.poll() is not None:
+                        # Restliche gepufferte Ausgabe übernehmen.
+                        rest = process.stdout.read() or ""
+                        if rest:
+                            lines.append(rest)
+                            for item in rest.splitlines():
+                                self.output.emit(item)
+                        break
+                process.wait()
             finally:
+                try: process.stdout.close()
+                except Exception: pass
                 with self._process_lock:
                     if self._process is process:
                         self._process = None
             if self._cancel_event.is_set():
-                return "Prüfung vom Benutzer abgebrochen."
-            return (stdout + "\\n" + stderr).strip() or f"Exit-Code {process.returncode}"
+                return "Prüfung vom Benutzer abgebrochen.\n" + "".join(lines)
+            return "".join(lines).strip() or f"Exit-Code {process.returncode}"
         except OSError as exc:
             return f"Prüfung fehlgeschlagen: {exc}"
 
@@ -361,6 +386,9 @@ class ModuleWorker(QThread):
 
 class ScanWorker(QThread):
     result = Signal(str)
+    progress = Signal(str)
+    total_files = Signal(int)
+    progress_batch = Signal(object)
     def __init__(self, target=None, update_signatures=False, update_only=False, scan_options=None, elevated=False):
         super().__init__()
         self.target = target
@@ -407,12 +435,18 @@ class ScanWorker(QThread):
     def _run_process(self, args, timeout):
         if self._cancelled or self.isInterruptionRequested():
             raise InterruptedError("Scan abgebrochen.")
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                bufsize=1, start_new_session=True)
         with self._process_lock:
             self._process = proc
         started = time.monotonic()
+        output = []
+        batch = []
+        last_emit = time.monotonic()
         try:
-            while proc.poll() is None:
+            # Ausgabe puffern: ein Signal pro Block statt eines Qt-Signals je Zeile.
+            # Das verhindert GUI-Staus bei sehr ausführlichen /sys-Scans.
+            while True:
                 if self._cancelled or self.isInterruptionRequested():
                     try: os.killpg(proc.pid, signal.SIGTERM)
                     except OSError: pass
@@ -425,12 +459,31 @@ class ScanWorker(QThread):
                 if time.monotonic() - started > timeout:
                     proc.kill(); proc.wait()
                     raise TimeoutError("Zeitüberschreitung beim Scan.")
-                time.sleep(0.15)
-            out, err = proc.communicate()
-            if self._cancelled or self.isInterruptionRequested():
-                raise InterruptedError("Scan vom Benutzer abgebrochen.")
-            return subprocess.CompletedProcess(args, proc.returncode, out, err)
+                line = proc.stdout.readline()
+                if line:
+                    line = line.rstrip("\r\n")
+                    output.append(line)
+                    if line:
+                        batch.append(line)
+                    now = time.monotonic()
+                    if len(batch) >= 100 or (batch and now - last_emit >= 0.15):
+                        self.progress_batch.emit(batch)
+                        batch = []
+                        last_emit = now
+                elif proc.poll() is not None:
+                    break
+                else:
+                    if batch and time.monotonic() - last_emit >= 0.15:
+                        self.progress_batch.emit(batch)
+                        batch = []
+                        last_emit = time.monotonic()
+                    time.sleep(0.025)
+            if batch:
+                self.progress_batch.emit(batch)
+            return subprocess.CompletedProcess(args, proc.returncode, "\n".join(output), "")
         finally:
+            try: proc.stdout.close()
+            except Exception: pass
             with self._process_lock:
                 self._process = None
 
@@ -499,7 +552,7 @@ class ScanWorker(QThread):
             return
         file_list_path = None
         try:
-            args = [scanner, "--infected", "--no-summary",
+            args = [scanner, "--verbose", "--infected", "--no-summary",
                     "--detect-pua=" + ("yes" if self.scan_options.get("detect_pua", False) else "no"),
                     "--heuristic-alerts=" + ("yes" if self.scan_options.get("heuristics", True) else "no"),
                     "--alert-exceeds-max=yes"]
@@ -558,8 +611,11 @@ class ScanWorker(QThread):
                     candidates.append(str(target_path))
             candidates = list(dict.fromkeys(candidates))
             if not candidates:
+                self.total_files.emit(0)
                 self.result.emit("\n\n".join(messages + ["Keine Dateien passend zu den gewählten Scanoptionen gefunden."]))
                 return
+            # Die Dateiliste ist exakt dieselbe Liste, die clamscan anschließend prüft.
+            self.total_files.emit(len(candidates))
             handle = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False,
                                                  prefix="lunasecurity-scan-", suffix=".list")
             file_list_path = handle.name
@@ -743,6 +799,318 @@ class MoonArtwork(QWidget):
         p.end()
 
 
+class ModuleProgressDialog(QDialog):
+    """Fortschrittsfenster für Sicherheitsprüfungen außerhalb von ClamAV."""
+    def __init__(self, title, cancel_callback, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"LunaSecurity – {title}")
+        self.setMinimumSize(700, 480)
+        self.resize(860, 600)
+        self.setModal(False)
+        self._finished = False
+        self.setStyleSheet(parent.styleSheet() if parent else "")
+        layout = QVBoxLayout(self)
+        heading = QLabel(f"{title} läuft")
+        heading.setStyleSheet("font-size:17pt;font-weight:800")
+        layout.addWidget(heading)
+        self.status = QLabel("Prüfung wird vorbereitet …")
+        self.status.setWordWrap(True)
+        layout.addWidget(self.status)
+        self.bar = QProgressBar()
+        self.bar.setRange(0, 0)
+        self.bar.setFormat("Prüfung läuft …")
+        layout.addWidget(self.bar)
+        self.output = QTextEdit()
+        self.output.setReadOnly(True)
+        self.output.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.output.document().setMaximumBlockCount(10000)
+        self.output.setPlaceholderText("Ausgaben der laufenden Prüfung erscheinen hier.")
+        layout.addWidget(self.output, 1)
+        buttons = QHBoxLayout()
+        self.cancel_button = QPushButton("Prüfung abbrechen")
+        self.cancel_button.clicked.connect(self._cancel)
+        self._cancel_callback = cancel_callback
+        buttons.addWidget(self.cancel_button)
+        self.copy_button = QPushButton("Ergebnis kopieren")
+        self.copy_button.clicked.connect(lambda: QApplication.clipboard().setText(self.output.toPlainText()))
+        buttons.addWidget(self.copy_button)
+        buttons.addStretch(1)
+        self.close_button = QPushButton("Schließen")
+        self.close_button.setEnabled(False)
+        self.close_button.clicked.connect(self.accept)
+        buttons.addWidget(self.close_button)
+        layout.addLayout(buttons)
+
+    def _cancel(self):
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.setText("Abbruch läuft …")
+        self.status.setText("Die Prüfung wird abgebrochen …")
+        self._cancel_callback()
+
+    def append_output(self, line):
+        if line:
+            self.output.append(str(line))
+            self.status.setText(str(line)[:500])
+
+    def finish(self, title, result):
+        self._finished = True
+        result = str(result or "")
+        if result.strip():
+            self.output.setPlainText(result)
+            self.output.moveCursor(QTextCursor.MoveOperation.Start)
+        cancelled = any(token in result.lower() for token in ("abgebrochen", "abbruch", "cancelled"))
+        self.status.setText("Prüfung abgebrochen" if cancelled else "Prüfung abgeschlossen")
+        self.bar.setRange(0, 1)
+        self.bar.setValue(0 if cancelled else 1)
+        self.bar.setFormat("Abgebrochen" if cancelled else "100 %")
+        self.cancel_button.setEnabled(False)
+        self.close_button.setEnabled(True)
+
+    def closeEvent(self, event):
+        if not self._finished:
+            event.ignore()
+            return
+        super().closeEvent(event)
+
+
+class ClamScanMonitor(QDialog):
+    """Einheitliche Live-Ansicht für sämtliche ClamAV-Scans."""
+    def __init__(self, target, parent=None, cancel_callback=None):
+        super().__init__(parent)
+        self.cancel_callback = cancel_callback
+        self.setWindowTitle("LunaSecurity – ClamAV-Systemprüfung")
+        self.setMinimumSize(760, 560)
+        self.setModal(False)
+        self.started = time.monotonic()
+        self.checked = 0
+        self.total_files = 0
+        self._checked_paths = set()
+        self.threats = 0
+        self.unreadable = 0
+        self.skipped = 0
+        self._current_scan_path = ""
+        self._unreadable_paths = set()
+        self._skipped_paths = set()
+        self._unreadable_fallback = set()
+        self._skipped_fallback = set()
+        root = QVBoxLayout(self)
+        head = QHBoxLayout()
+        title = QLabel("ClamAV-Scan läuft")
+        title.setStyleSheet("font-size:19pt;font-weight:800")
+        self.state = QLabel("● Aktiv")
+        self.state.setStyleSheet("color:#35d46a;font-weight:700")
+        head.addWidget(title); head.addStretch(1); head.addWidget(self.state)
+        root.addLayout(head)
+        self.target_label = QLabel(f"Scanbereich: {target}")
+        self.target_label.setWordWrap(True)
+        root.addWidget(self.target_label)
+        self.note = QLabel("Root-Rechte werden nur für geschützte Systembereiche benötigt.")
+        self.note.setObjectName("muted")
+        root.addWidget(self.note)
+        self.bar = QProgressBar(); self.bar.setRange(0, 0)
+        root.addWidget(self.bar)
+        stats = QHBoxLayout()
+        self.checked_label = QLabel("0\nGeprüfte Dateien")
+        self.threat_label = QLabel("0\nBedrohungen")
+        self.unreadable_label = QLabel("0\nNicht lesbar")
+        self.skipped_label = QLabel("0\nÜbersprungen")
+        for label in (self.checked_label, self.threat_label, self.unreadable_label, self.skipped_label):
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setStyleSheet("QLabel{background:#292b3b;border:1px solid #555875;border-radius:9px;padding:12px;font-size:12pt;font-weight:700}")
+            stats.addWidget(label)
+        root.addLayout(stats)
+        self.current = QLabel("Aktuelle Datei: wird vorbereitet …")
+        self.current.setWordWrap(True)
+        root.addWidget(self.current)
+        log_title = QLabel("Scan-Protokoll")
+        log_title.setStyleSheet("font-size:13pt;font-weight:700")
+        root.addWidget(log_title)
+        self.log = QTextEdit(); self.log.setReadOnly(True)
+        self.log.document().setMaximumBlockCount(5000)
+        root.addWidget(self.log, 1)
+        self.elapsed = QLabel("Verstrichene Zeit: 00:00")
+        root.addWidget(self.elapsed)
+        actions = QHBoxLayout()
+        self.actions_layout = actions
+        self.cancel_button = QPushButton("Scan abbrechen")
+        self.cancel_button.clicked.connect(self.cancel_scan)
+        actions.addWidget(self.cancel_button)
+        self.copy_button = QPushButton("Scan-Ergebnis kopieren")
+        self.copy_button.clicked.connect(self.copy_result)
+        actions.addWidget(self.copy_button)
+        actions.addStretch(1)
+        # Der Button existiert von Anfang an im Layout, ist aber während
+        # des Scans vollständig verborgen. Im Abschluss-Slot wird er eingeblendet.
+        self.close_button = QPushButton("Schließen")
+        self.close_button.setMinimumWidth(108)
+        self.close_button.setEnabled(False)
+        self.close_button.setStyleSheet(
+            "QPushButton { background-color:#2860df; color:white; "
+            "border:1px solid #5685ff; border-radius:8px; "
+            "padding:10px 22px; font-weight:700; }"
+            "QPushButton:hover { background-color:#3974f2; }"
+            "QPushButton:pressed { background-color:#1e49b8; }"
+            "QPushButton:disabled { background-color:#3b465f; color:#9aa3b8; "
+            "border:1px solid #56617a; }"
+        )
+        self.close_button.clicked.connect(self.accept)
+        self.close_button.show()
+        actions.addWidget(self.close_button)
+        root.addLayout(actions)
+        self.clock = QTimer(self); self.clock.setInterval(1000)
+        self.clock.timeout.connect(self.update_elapsed); self.clock.start()
+
+    def set_total_files(self, total):
+        self.total_files = max(0, int(total))
+        if self.total_files > 0:
+            self.bar.setRange(0, self.total_files)
+            self.bar.setValue(min(self.checked, self.total_files))
+            self.bar.setFormat("%p%")
+        else:
+            self.bar.setRange(0, 0)
+            self.bar.setFormat("Scan läuft …")
+
+    def update_elapsed(self):
+        seconds = int(time.monotonic() - self.started)
+        self.elapsed.setText(f"Verstrichene Zeit: {seconds//3600:02d}:{(seconds//60)%60:02d}:{seconds%60:02d}")
+
+    def add_line(self, line):
+        """Kompatibler Einzelzeilen-Einstieg; produktiv kommen Zeilen blockweise."""
+        self.add_lines([line])
+
+    def add_lines(self, lines):
+        """Wertet einen Ausgabeblock aus und aktualisiert die Oberfläche nur einmal."""
+        cleaned = []
+        for raw in lines or []:
+            text = str(raw).strip()
+            if not text:
+                continue
+            cleaned.append(text)
+            upper = text.upper()
+            if upper.startswith("SCANNING "):
+                self._current_scan_path = text[9:].strip()
+                if self._current_scan_path not in self._checked_paths:
+                    self._checked_paths.add(self._current_scan_path)
+                    self.checked += 1
+            elif upper.endswith(": OK") or "\tOK" in upper:
+                # OK-Zeilen nur ergänzend zählen, falls kein SCANNING-Pfad kam.
+                result_path = text.rsplit(":", 1)[0].strip()
+                if result_path and result_path not in self._checked_paths:
+                    self._checked_paths.add(result_path)
+                    self.checked += 1
+            if " FOUND" in upper or "INFECTED" in upper:
+                self.threats += 1
+
+            path = self._current_scan_path
+            is_read_error = any(token in upper for token in (
+                "FMAP_READPAGE: PREAD FAIL", "FMAP_READPAGE: PREAD ERROR",
+                "ACCESS DENIED", "PERMISSION DENIED", "CAN'T OPEN",
+                "CANNOT OPEN", "FAILED TO OPEN", "INPUT/OUTPUT ERROR", "I/O ERROR"
+            ))
+            if is_read_error:
+                key = path or upper
+                if key not in self._unreadable_paths and key not in self._unreadable_fallback:
+                    if path:
+                        self._unreadable_paths.add(key)
+                    else:
+                        self._unreadable_fallback.add(key)
+                    self.unreadable += 1
+
+            # Übersprungen ist eine eigene ClamAV-Aussage, kein Synonym für Lesefehler.
+            is_skipped = any(token in upper for token in (
+                "SKIPPING ", "SKIPPED", "EXCLUDED", "WILL NOT BE SCANNED"
+            ))
+            if is_skipped:
+                key = path or upper
+                if key not in self._skipped_paths and key not in self._skipped_fallback:
+                    if path:
+                        self._skipped_paths.add(key)
+                    else:
+                        self._skipped_fallback.add(key)
+                    self.skipped += 1
+
+        if not cleaned:
+            return
+        self.log.setUpdatesEnabled(False)
+        try:
+            self.log.moveCursor(QTextCursor.MoveOperation.End)
+            self.log.insertPlainText("\n".join(cleaned) + "\n")
+        finally:
+            self.log.setUpdatesEnabled(True)
+        self.current.setText("Aktuelle Datei: " + (self._current_scan_path or cleaned[-1])[:500])
+        self.checked_label.setText(f"{self.checked:,}\nGeprüfte Dateien".replace(",", "."))
+        if self.total_files > 0:
+            self.bar.setValue(min(self.checked, self.total_files))
+        self.threat_label.setText(f"{self.threats}\nBedrohungen")
+        self.unreadable_label.setText(f"{self.unreadable}\nNicht lesbar")
+        self.skipped_label.setText(f"{self.skipped}\nÜbersprungen")
+
+    def cancel_scan(self):
+        if self.cancel_callback:
+            self.cancel_button.setEnabled(False)
+            self.cancel_button.setText("Abbruch läuft …")
+            self.note.setText("Der Scan wird abgebrochen …")
+            self.cancel_callback()
+            # Sofort die Schließen-Aktion anbieten; der Worker beendet parallel ClamAV.
+            self._replace_close_button()
+
+    def copy_result(self):
+        QApplication.clipboard().setText(self.log.toPlainText())
+
+    def _replace_close_button(self):
+        # Kompatibler Name; der Button ist bereits im Layout und wird nur gezeigt.
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.setText("Scan abbrechen")
+        self.close_button.setEnabled(True)
+        self.close_button.setVisible(True)
+        self.close_button.show()
+        self.close_button.raise_()
+        self.close_button.update()
+        self.close_button.repaint()
+
+    def finish(self, result):
+        self.clock.stop()
+        cancelled = (
+            "benutzer abgebrochen" in str(result).lower()
+            or "exit-code -15" in str(result).lower()
+            or "abbruch" in str(result).lower()
+        )
+        self.bar.setRange(0, 1)
+        self.bar.setValue(0 if cancelled else 1)
+        self.bar.setFormat("Abgebrochen" if cancelled else "100 %")
+        self.state.setText("● Abgebrochen" if cancelled else "● Abgeschlossen")
+        # This is the authoritative terminal-state command. Reveal the close
+        # button immediately here, rather than waiting for later report/log work.
+        self._replace_close_button()
+        self.state.setStyleSheet("color:#35d46a;font-weight:700")
+        self.note.setText(
+            "Scan abgebrochen. Das bisherige Ergebnis steht im Scan-Protokoll."
+            if cancelled else
+            "Scan abgeschlossen. Das vollständige Ergebnis steht im Scan-Protokoll."
+        )
+        if result:
+            # Nur kompakte Status-/Zusammenfassungszeilen ergänzen. Die vollständige
+            # Ausgabe wurde vom Worker verarbeitet und darf nicht nochmals als ein
+            # riesiger QTextEdit-Block in die GUI kopiert werden.
+            summary_lines = []
+            for raw in str(result).splitlines():
+                line = raw.strip()
+                if line.startswith(("Scanumfang:", "Systemscan mit Administratorrechten", "Scanned files:",
+                                    "Infected files:", "Data scanned:", "Time:", "Scan beendet", "Systemscan beendet")):
+                    summary_lines.append(line)
+            if summary_lines:
+                self.log.append("\n" + "\n".join(summary_lines[-20:]))
+            summary = re.search(r"Scanned files:\s*(\d+)", str(result), re.IGNORECASE)
+            if summary:
+                self.checked = int(summary.group(1))
+                self.checked_label.setText(f"{self.checked:,}\nGeprüfte Dateien".replace(",", "."))
+        self._replace_close_button()
+        # Normaler Abschluss: Sichtbarkeit nach dem Qt-Signal nochmals anwenden.
+        QTimer.singleShot(0, self._replace_close_button)
+        QTimer.singleShot(150, self._replace_close_button)
+
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -755,6 +1123,7 @@ class MainWindow(QMainWindow):
         self.bridge.scan_result.connect(self.scan_finished)
         self.tray = None
         self.worker = None
+        self.scan_monitor = None
         self.realtime_worker = None
         self.settings = QSettings("LunaSecurity", "LunaSecurity")
         self._build_ui()
@@ -824,7 +1193,7 @@ class MainWindow(QMainWindow):
             card=QFrame(); card.setObjectName("panel"); box=QVBoxLayout(card); h=QLabel(heading); h.setStyleSheet("font-size:13pt;font-weight:700"); d=QLabel(detail); d.setObjectName("muted"); box.addWidget(h); box.addWidget(d); cards.addWidget(card)
         layout.addLayout(cards)
         actions=QHBoxLayout(); self.scan_button=QPushButton("Dateien / Ordner scannen"); self.scan_button.clicked.connect(lambda _checked=False: self.start_scan()); actions.addWidget(self.scan_button)
-        self.home_button=QPushButton("Home-Verzeichnis prüfen"); self.home_button.clicked.connect(lambda:self.start_scan(str(Path.home()))); actions.addWidget(self.home_button)
+        self.home_button=QPushButton("Home-Verzeichnis prüfen"); self.home_button.clicked.connect(lambda:self.start_scan(str(Path.home()), full_scan=True)); actions.addWidget(self.home_button)
         self.scan_profile = QComboBox(); self.scan_profile.addItems(["Eigenes Profil", "Schnellscan", "Komplettscan"])
         self.scan_profile.setToolTip("Legt die Scanoptionen für den nächsten Scan fest."); actions.addWidget(self.scan_profile); layout.addLayout(actions)
         self.auto_update_check = QCheckBox("Vor jedem Scan automatisch Virensignaturen mit freshclam aktualisieren")
@@ -838,9 +1207,9 @@ class MainWindow(QMainWindow):
         self.signature_version_label.setWordWrap(True)
         layout.addWidget(self.signature_version_label)
         realtime_row = QHBoxLayout()
-        self.system_scan_button = QPushButton("Systembereiche scannen")
-        self.system_scan_button.setToolTip("Prüft wichtige Linux-Systemverzeichnisse wie /etc, /usr/bin, /usr/lib, /boot und /opt.")
-        self.system_scan_button.clicked.connect(self.scan_system_areas)
+        self.system_scan_button = QPushButton("Vollständiger Systemscan")
+        self.system_scan_button.setToolTip("Prüft das gesamte Wurzelverzeichnis / einschließlich geschützter Bereiche; Root-Rechte werden über pkexec angefordert.")
+        self.system_scan_button.clicked.connect(lambda: self.start_scan("/", elevated=True))
         realtime_row.addWidget(self.system_scan_button)
         realtime_row.addWidget(self.update_button)
         self.realtime_button = QPushButton("Echtzeitschutz aktivieren")
@@ -857,10 +1226,16 @@ class MainWindow(QMainWindow):
         realtime_row.addWidget(self.realtime_indicator)
         layout.addLayout(realtime_row)
         self.refresh_realtime_status()
-        progress_row = QHBoxLayout()
-        self.progress=QProgressBar(); self.progress.setRange(0,0); self.progress.hide(); progress_row.addWidget(self.progress, 1)
-        self.cancel_scan_button = QPushButton("Scan abbrechen"); self.cancel_scan_button.setEnabled(False); self.cancel_scan_button.clicked.connect(self.cancel_scan); progress_row.addWidget(self.cancel_scan_button)
-        layout.addLayout(progress_row)
+        # Der alte Fortschritts-/Abbruchbereich der Hauptansicht wurde entfernt.
+        # Statusobjekte bleiben intern für bestehende Nicht-ClamAV-Prüfungen erhalten,
+        # werden aber nicht mehr in die Oberfläche eingefügt.
+        self.progress = QProgressBar(self)
+        self.progress.setRange(0, 0)
+        self.progress.hide()
+        self.cancel_scan_button = QPushButton("Scan abbrechen", self)
+        self.cancel_scan_button.setEnabled(False)
+        self.cancel_scan_button.clicked.connect(self.cancel_scan)
+        self.cancel_scan_button.hide()
         self.log=QTextEdit(); self.log.setReadOnly(True); self.log.setMinimumHeight(152); self.log.setMaximumHeight(152); self.log.setPlaceholderText("Scan-Ergebnisse und Sicherheitsmeldungen erscheinen hier."); layout.addWidget(self.log, 0)
         self.tray_check=QCheckBox("Beim Schließen im Infobereich weiterlaufen")
         self.tray_check.setChecked(self.settings.value("minimize_to_tray", True, type=bool))
@@ -1354,7 +1729,7 @@ class MainWindow(QMainWindow):
             event.accept()
             QApplication.quit()
 
-    def start_scan(self, target=None, elevated=False):
+    def start_scan(self, target=None, elevated=False, full_scan=False):
         if target is None:
             # Explizite Auswahl statt Ja/Nein-Frage: auf Linux/GTK-Desktops
             # kann der native Dialog sonst unsichtbar bleiben oder unklar wirken.
@@ -1392,6 +1767,58 @@ class MainWindow(QMainWindow):
             if not Path(target).exists():
                 QMessageBox.warning(self,"LunaSecurity",f"Pfad nicht gefunden: {target}"); return
             target_label = target
+
+        # Klare Regel für Ordner-Scans:
+        # Alles innerhalb des persönlichen Home-Verzeichnisses läuft ohne Root.
+        # Jeder andere Ordner bietet Root-Rechte an – unabhängig davon, ob
+        # einzelne Zugriffsrechte aktuell zufällig gesetzt sind.
+        if not elevated:
+            selected_targets = target if isinstance(target, (list, tuple, set)) else [target]
+            home_path = Path.home().resolve()
+            outside_home_directory = False
+            for selected_path in selected_targets:
+                selected = Path(selected_path)
+                if not selected.is_dir():
+                    continue
+                try:
+                    resolved = selected.resolve()
+                    try:
+                        is_inside_home = os.path.commonpath(
+                            [str(home_path), str(resolved)]
+                        ) == str(home_path)
+                    except ValueError:
+                        is_inside_home = False
+                    if not is_inside_home:
+                        outside_home_directory = True
+                        break
+                except OSError:
+                    outside_home_directory = True
+                    break
+
+            if outside_home_directory:
+                if not shutil.which("pkexec"):
+                    QMessageBox.warning(
+                        self,
+                        "Administratorrechte erforderlich",
+                        "Für Ordner außerhalb deines Home-Verzeichnisses werden "
+                        "Root-Rechte benötigt. pkexec ist nicht verfügbar."
+                    )
+                    return
+                answer = QMessageBox.question(
+                    self,
+                    "Root-Rechte für den Ordnerscan",
+                    "Du hast einen Ordner außerhalb deines Home-Verzeichnisses ausgewählt.\\n\\n"
+                    "Möchtest du den Scan mit Root-Rechten starten?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+                if answer != QMessageBox.StandardButton.Yes:
+                    self.log.append(
+                        "Scan nicht gestartet: Root-Rechte für den ausgewählten Ordner wurden abgelehnt."
+                    )
+                    return
+                elevated = True
+
         self.scan_button.setEnabled(False); self.home_button.setEnabled(False); self.system_scan_button.setEnabled(False); self.update_button.setEnabled(False); self.progress.show(); self.cancel_scan_button.setEnabled(True)
         self.log.append(f"\nScan gestartet: {target_label}")
         scan_options = {
@@ -1413,7 +1840,16 @@ class MainWindow(QMainWindow):
             scan_options.update({"detect_pua": True, "heuristics": True,
                                  "hidden_files": True, "large_files": True,
                                  "recursive": True})
-        self.worker=ScanWorker(target, update_signatures=self.auto_update_check.isChecked(), scan_options=scan_options, elevated=elevated); self.worker.result.connect(self.scan_finished); self.worker.start()
+        if full_scan:
+            # Home-Scan umfasst auch versteckte Dateien und alle Unterordner.
+            scan_options.update({"hidden_files": True, "recursive": True})
+        self.scan_monitor = ClamScanMonitor(target_label, self, cancel_callback=self.cancel_scan)
+        self.scan_monitor.show()
+        self.worker=ScanWorker(target, update_signatures=self.auto_update_check.isChecked(), scan_options=scan_options, elevated=elevated)
+        self.worker.progress_batch.connect(self.scan_monitor.add_lines)
+        self.worker.total_files.connect(self.scan_monitor.set_total_files)
+        self.worker.result.connect(self.scan_finished)
+        self.worker.start()
 
     def scan_system_areas(self):
         """Scannt wichtige echte Systemverzeichnisse, ohne virtuelle Dateisysteme."""
@@ -1987,22 +2423,46 @@ class MainWindow(QMainWindow):
         if self.module_worker and self.module_worker.isRunning() and self.module_worker.cancellable:
             self.cancel_scan_button.setEnabled(False)
             self.log.append("\nAIDE-Abbruch wird ausgeführt …")
-            self.module_worker.cancel()
+            if getattr(self, "module_progress_dialog", None) is not None:
+                self.module_progress_dialog._cancel()
+            else:
+                self.module_worker.cancel()
             return
         if self.worker and self.worker.isRunning():
             self.cancel_scan_button.setEnabled(False)
-            self.log.append("\nScan-Abbruch wird ausgeführt …")
+            self.log.append("\nScan wurde erfolgreich abgebrochen.")
             self.worker.cancel()
 
     @Slot(str)
     def scan_finished(self,text):
         self.progress.hide(); self.scan_button.setEnabled(True); self.home_button.setEnabled(True); self.system_scan_button.setEnabled(True); self.update_button.setEnabled(True); self.cancel_scan_button.setEnabled(False)
-        self.log.append(text)
+        if self.scan_monitor is not None:
+            self.scan_monitor.finish(text)
+            # Den angezeigten Scanumfang direkt aus dem Scanfenster übernehmen.
+            scan_window_text = self.scan_monitor.log.toPlainText()
+            scan_scope_line = next(
+                (line.strip() for line in scan_window_text.splitlines()
+                 if line.strip().startswith("Scanumfang:")),
+                "",
+            )
+            if scan_scope_line:
+                self.log.append(scan_scope_line)
+            else:
+                self.log.append(
+                    "FEHLER: Der Scanumfang konnte nicht aus dem Scanfenster "
+                    "übernommen werden. Bitte das Scan-Protokoll im Scanfenster prüfen."
+                )
+        else:
+            self.log.append(
+                "FEHLER: Das Scanfenster ist nicht verfügbar; der Scanumfang "
+                "konnte nicht ins Hauptprotokoll übernommen werden."
+            )
+        self.log.append("ClamAV-Prüfung beendet. Details und Live-Protokoll stehen im Scanfenster.")
         if "Scan wurde vom Benutzer abgebrochen" not in text:
             self.report_detections(text)
         self.log.append("Scan-Aufgabe beendet.")
         self.signature_version_label.setText("Installierte Virensignaturen: " + signature_database_versions())
-        self._show_test_report("Datei-/Ordnerscan", text)
+        # Ergebnis, Kopieren und Schließen sind im gemeinsamen ClamAV-Fenster.
 
     def _show_test_report(self, title, result):
         """Einheitliches, gut lesbares Ergebnisfenster für alle Sicherheitsprüfungen."""
@@ -2070,7 +2530,12 @@ class MainWindow(QMainWindow):
             self.cancel_scan_button.setEnabled(True)
         worker = ModuleWorker(title, function, cancellable=cancellable)
         self.module_worker = worker
+        self.module_progress_dialog = ModuleProgressDialog(title, worker.cancel, self)
+        self.module_progress_dialog.append_output(f"{title} gestartet.")
+        worker.output.connect(self.module_progress_dialog.append_output)
+        worker.result.connect(self.module_progress_dialog.finish)
         worker.result.connect(self.module_finished)
+        self.module_progress_dialog.show()
         worker.start()
 
     @staticmethod
@@ -2187,79 +2652,23 @@ class MainWindow(QMainWindow):
         if title == "YARA-Regelaktualisierung":
             self.yara_update_button.setEnabled(True)
             self.refresh_yara_rules_status()
+
+        # Keine zusätzlichen Ergebnisdialoge: Das gemeinsame Prüfungsfenster
+        # zeigt bereits den vollständigen Rückgabewert.
         if title == "Rootkit-Prüfung":
-            upper = result.upper()
             if self._rootkit_serious_finding(result):
-                summary = "Rootkit-Prüfung: möglicher ernsthafter Fund – Bericht geöffnet."
-            elif "WARNING" in upper or "WARNUNG" in upper or "SUSPICIOUS" in upper:
-                summary = "Rootkit-Prüfung: Hinweise gefunden – Bericht geöffnet."
+                summary = "Rootkit-Prüfung: möglicher ernsthafter Fund – Ergebnisfenster prüfen."
+            elif any(token in result.upper() for token in ("WARNING", "WARNUNG", "SUSPICIOUS")):
+                summary = "Rootkit-Prüfung: Hinweise gefunden – Ergebnisfenster prüfen."
             else:
-                summary = "Rootkit-Prüfung abgeschlossen – Bericht geöffnet."
+                summary = "Rootkit-Prüfung abgeschlossen – Ergebnisfenster prüfen."
             self.log.append(summary)
-            self._show_rootkit_report(result)
             return
 
         self.log.append(result)
         if title in ("Lynis-Sicherheitsprüfung", "fail2ban-Überwachung"):
-            self.advanced_output.setPlainText(title + "\n\n" + result)
-        self.log.append(f"{title} beendet. Ergebnisse bitte prüfen; Warnungen sind nicht automatisch bestätigte Infektionen.")
-        if title == "Netzwerkprüfung":
-            upper = result.upper()
-            if "NICHT VOLLSTÄNDIG GEPRÜFT" in upper:
-                icon = QMessageBox.Icon.Warning
-                summary = "Netzwerkprüfung nicht vollständig – Details anzeigen."
-            elif "GESAMTBEWERTUNG\n\nGUT" in upper:
-                icon = QMessageBox.Icon.Information
-                summary = "GUT – die lokale Firewall-Eingangsfilterung ist grundsätzlich aktiv."
-            else:
-                icon = QMessageBox.Icon.Warning
-                summary = "WARNUNG / PRÜFEN – bitte die Firewall-Konfiguration kontrollieren."
-            dialog = QDialog(self)
-            dialog.setWindowTitle("LunaSecurity – Firewall-Ergebnis")
-            dialog.setModal(True)
-            dialog.resize(900, 680)
-            dialog.setMinimumSize(720, 520)
-            dialog.setStyleSheet(self.styleSheet())
-            report_layout = QVBoxLayout(dialog)
-            report_layout.setContentsMargins(18, 16, 18, 16)
-            report_layout.setSpacing(12)
-            heading = QLabel("⚠  " + summary if icon == QMessageBox.Icon.Warning else "✓  " + summary)
-            heading.setWordWrap(True)
-            heading.setStyleSheet("font-size:14pt;font-weight:700;padding:10px;background:#222a3d;border:1px solid #536fe8;border-radius:8px")
-            report_layout.addWidget(heading)
-            intro = QLabel("Vollständiger Netzwerk- und Firewall-Prüfbericht")
-            intro.setStyleSheet("color:#aab8d0;font-weight:600")
-            report_layout.addWidget(intro)
-            details = QTextEdit()
-            details.setReadOnly(True)
-            details.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-            details.setPlainText(result)
-            details.setMinimumHeight(390)
-            details.setStyleSheet("font-family:monospace;font-size:10pt;background:#101522;color:#e8ecf5;padding:8px")
-            report_layout.addWidget(details, 1)
-            action_row = QHBoxLayout()
-            block_button = QPushButton("Port gezielt sperren …")
-            block_button.clicked.connect(self.block_firewall_port)
-            rollback_button = QPushButton("LunaSecurity-Sperren aufheben")
-            rollback_button.clicked.connect(self.rollback_firewall_guard)
-            save_button = QPushButton("Testregeln dauerhaft speichern")
-            save_button.clicked.connect(self.persist_firewall_guard)
-            action_row.addWidget(block_button)
-            action_row.addWidget(save_button)
-            action_row.addWidget(rollback_button)
-            action_row.addStretch()
-            report_layout.addLayout(action_row)
-            close_row = QHBoxLayout()
-            close_row.addStretch()
-            close_button = QPushButton("Schließen")
-            close_button.setMinimumWidth(130)
-            close_button.clicked.connect(dialog.accept)
-            close_row.addWidget(close_button)
-            report_layout.addLayout(close_row)
-            dialog.exec()
-            return
-
-        self._show_test_report(title, result)
+            self.advanced_output.setPlainText(title + "\\n\\n" + result)
+        self.log.append(f"{title} beendet. Ergebnisse bitte im Prüfungsfenster prüfen; Warnungen sind nicht automatisch bestätigte Infektionen.")
 
     def block_firewall_port(self):
         port, ok = QInputDialog.getInt(

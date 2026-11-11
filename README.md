@@ -1,7 +1,7 @@
 # LunaSecurity
 
 **Linux-Sicherheitswerkzeuge in einer grafischen Oberfläche**  
-Version **0.3.81** · Debian 13 · Python 3 · Qt 6 / PySide6 · GTK 3
+Version **0.4.29** · Debian 13 · Python 3 · Qt 6 / PySide6 · GTK 3
 
 LunaSecurity bündelt verschiedene lokale Sicherheits- und Diagnosewerkzeuge in einer zentralen Desktop-Anwendung. Das Programm hilft dabei, Dateien zu prüfen, Sicherheitsereignisse nachzuverfolgen, ausgewählte Dateien in Quarantäne zu verschieben sowie den Zustand von System, Netzwerk und Firewall zu untersuchen.
 
@@ -101,11 +101,11 @@ Für grafische Administratorabfragen wird ein laufender PolicyKit-Authentifizier
 
 ### Empfohlen: Debian-Paket
 
-Lade das passende Paket `lunasecurity_0.3.81_all.deb` herunter und installiere es im Terminal:
+Lade das passende Paket `lunasecurity_0.4.29_all.deb` herunter und installiere es im Terminal:
 
 ```bash
 cd ~/Downloads
-sudo apt install ./lunasecurity_0.3.81_all.deb
+sudo apt install ./lunasecurity_0.4.29_all.deb
 ```
 
 APT löst dabei die im Paket angegebenen Abhängigkeiten auf. Anschließend findest du LunaSecurity im Anwendungsmenü oder kannst es über das Terminal starten:
@@ -119,7 +119,7 @@ lunasecurity
 Das ZIP-Archiv enthält den Python-Quellcode und das Build-Skript. Zum Erstellen des Debian-Pakets werden eine Debian-Umgebung mit den benötigten Laufzeitpaketen sowie `dpkg-deb` benötigt.
 
 ```bash
-unzip LunaSecurity_0.3.81_Github.zip
+unzip LunaSecurity_0.4.29_Github.zip
 cd LunaSecurity
 chmod +x build_deb.sh
 ./build_deb.sh
