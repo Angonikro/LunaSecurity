@@ -1,6 +1,7 @@
 # Änderungsprotokoll LunaSecurity
 
 ## Version 0.4.30
+- Hinweisbanner verweist jetzt auf den tatsächlich so benannten Tab „Virenschutz“; die Meldung ist sprachabhängig übersetzt.
 - Echtzeitschutz-Schaltfläche, Statusanzeige und Statuspunkt wieder in die bestehende Aktionszeile integriert; keine zusätzliche Zeile.
 - Beschriftung „Vollständiger Systemscan“ zu „Systemscan“ verkürzt, damit die Aktionszeile besser passt.
 
