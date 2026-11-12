@@ -1,6 +1,6 @@
 ## LunaSecurity
 
-## Version **0.4.35** · Debian 13 · Python 3 · Qt 6 / PySide6 · GTK 3
+## Version **0.4.36** · Debian 13 · Python 3 · Qt 6 / PySide6 · GTK 3
 **Linux-Sicherheitswerkzeuge in einer grafischen Oberfläche**  
 
 LunaSecurity bündelt verschiedene lokale Sicherheits- und Diagnosewerkzeuge in einer zentralen Desktop-Anwendung. Das Programm hilft dabei, Dateien zu prüfen, Sicherheitsereignisse nachzuverfolgen, ausgewählte Dateien in Quarantäne zu verschieben sowie den Zustand von System, Netzwerk und Firewall zu untersuchen.
@@ -108,11 +108,11 @@ Für grafische Administratorabfragen wird ein laufender PolicyKit-Authentifizier
 
 ### Empfohlen: Debian-Paket
 
-Lade das passende Paket `lunasecurity_0.4.35_all.deb` herunter und installiere es im Terminal:
+Lade das passende Paket `lunasecurity_0.4.36_all.deb` herunter und installiere es im Terminal:
 
 ```bash
 cd ~/Downloads
-sudo apt install ./lunasecurity_0.4.35_all.deb
+sudo apt install ./lunasecurity_0.4.36_all.deb
 ```
 
 APT löst dabei die im Paket angegebenen Abhängigkeiten auf. Anschließend findest du LunaSecurity im Anwendungsmenü oder kannst es über das Terminal starten:
@@ -126,7 +126,7 @@ lunasecurity
 Das ZIP-Archiv enthält den Python-Quellcode und das Build-Skript. Zum Erstellen des Debian-Pakets werden eine Debian-Umgebung mit den benötigten Laufzeitpaketen sowie `dpkg-deb` benötigt.
 
 ```bash
-unzip LunaSecurity_0.4.35_Github.zip
+unzip LunaSecurity_0.4.36_Github.zip
 cd LunaSecurity
 chmod +x build_deb.sh
 ./build_deb.sh
@@ -140,13 +140,13 @@ Das erzeugte Paket liegt anschließend im Verzeichnis `dist/`. Das Build-Skript 
 sudo apt update
 sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtprintsupport python3-gi gir1.2-gtk-3.0 clamav clamav-daemon clamav-freshclam rkhunter chkrootkit pkexec polkitd aide yara nftables iproute2 auditd lynis fail2ban mate-polkit
 ```
-Lade die zip Datei runter, LunaSecurity_0.4.35_GITHUB.zip
+Lade die zip Datei runter, LunaSecurity_0.4.36_GITHUB.zip
 
 Wechsle in den Download-Ordner und entpacke das Archiv:
 
 ```bash
 cd ~/Downloads
-unzip LunaSecurity_0.4.35_GITHUB.zip
+unzip LunaSecurity_0.4.36_GITHUB.zip
 ```
 
 LunaSecurity starten

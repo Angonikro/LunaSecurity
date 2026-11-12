@@ -1,4 +1,11 @@
-## 0.4.35 – VirusTotal-Dialoge übersichtlicher
+## 0.4.36
+
+- Bedrohung Erkennungsbereiche verbessert.
+- Das Scan-Protokoll erhält innerhalb des unveränderten Hauptfensters mehr Höhe (ca. 1,5 cm zusätzliche Fläche).
+- Der darüberliegende Scanbereich wird entsprechend kompakter; Fenstergröße und Dashboard-Breite bleiben unverändert.
+- VirusTotal-Dialogkorrekturen aus 0.4.35 bleiben enthalten.
+
+## 0.4.36 – VirusTotal-Dialoge übersichtlicher
 
 - Die Abfrage vor dem Upload einer unbekannten Datei zeigt Dateiname, Größe, SHA-256 und Speicherort getrennt an.
 - Das Prüfergebnis und der Upload-Status werden in übersichtlichen Abschnitten dargestellt.
@@ -702,14 +709,28 @@
 - Linke Navigationsschrift um eine Punktgröße auf 10 pt erhöht.
 - Menüpunkt „Reparatur & Wiederherstellung“ in „Wiederherstellung“ umbenannt.
 - Versionsnummer bleibt unverändert bei 0.4.34.
-\n\n## 0.4.35\n- Dashboard-Karte im markierten Bereich von Firewall auf VirusTotal umgestellt.\n- Firewall-Bericht-Schaltfläche dort entfernt; eigener VirusTotal-Titel, Erklärung und Datei-Prüfaktion ergänzt.\n- Die VirusTotal-Prüfung nutzt weiterhin SHA-256; unbekannte Dateien werden nur nach ausdrücklicher Bestätigung hochgeladen.\n
+\n\n## 0.4.36\n- Dashboard-Karte im markierten Bereich von Firewall auf VirusTotal umgestellt.\n- Firewall-Bericht-Schaltfläche dort entfernt; eigener VirusTotal-Titel, Erklärung und Datei-Prüfaktion ergänzt.\n- Die VirusTotal-Prüfung nutzt weiterhin SHA-256; unbekannte Dateien werden nur nach ausdrücklicher Bestätigung hochgeladen.\n
 
-## 0.4.35 – Korrekturpaket
+## 0.4.36 – Korrekturpaket
 - Startfehler behoben: Versionsdatei enthält wieder einen echten Zeilenumbruch statt der wörtlichen Zeichenfolge `\\n`.
 
 
-## 0.4.35 – VirusTotal-Ergebnisfenster
+## 0.4.36 – VirusTotal-Ergebnisfenster
 - Ergebnisdetails werden mit echten Zeilenumbrüchen statt sichtbaren \\n-Sequenzen dargestellt.
 - Erkennungen, Anbieter, Dateipfad, SHA-256 und Upload-Status sind klar voneinander getrennt.
 - Ergebnisfenster erhält mehr Breite, damit lange Angaben besser lesbar umbrechen.
-- Versionsnummer bleibt unverändert bei 0.4.35.
+- Versionsnummer bleibt unverändert bei 0.4.36.
+
+
+## 0.4.36 – Schildstatus-Korrektur
+
+- Das Dashboard-Schild wird als echtes Vektorgrafik-Widget gezeichnet.
+- Grünes Schild mit Haken bei sauberem Scan; rotes Schild mit Ausrufezeichen bei erkannten Bedrohungen.
+- Größe und Aufbau des Scan-Protokollfensters bleiben unverändert.
+
+## 0.4.36 – Bedrohungsanzeige im Dashboard
+- Die globale rote Hinweisleiste oben im Dashboard wurde entfernt.
+- Bei gespeicherten Sicherheitsereignissen wird das große Schild rot und zeigt ein Ausrufezeichen.
+- Der Hinweis auf weitere Details erscheint direkt im Sicherheitsprüfungsbereich neben dem Schild.
+- Bei leerer Ereignisliste bleibt das Schild grün und der Hinweis ausgeblendet.
+- Das Scan-Protokoll-Layout und seine Größenangaben wurden nicht geändert.

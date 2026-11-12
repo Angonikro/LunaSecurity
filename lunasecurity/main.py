@@ -892,6 +892,80 @@ class DashboardIcon(QWidget):
             p.drawLine(24, 32, 24, 39); p.drawLine(16, 42, 32, 42)
 
 
+class DashboardShield(QWidget):
+    """Großes Statusschild: grün bei sauberem Scan, rot bei Bedrohungsfund."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.threat_detected = False
+        self.setMinimumSize(190, 190)
+        self.setMaximumWidth(230)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+
+    def set_threat_detected(self, detected):
+        self.threat_detected = bool(detected)
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        side = min(self.width(), self.height())
+        x = (self.width() - side) / 2
+        y = (self.height() - side) / 2
+        p.translate(x, y)
+        p.scale(side / 200.0, side / 200.0)
+
+        # Dezenter violetter Ring und dunkler Hintergrund
+        p.setPen(QPen(QColor("#8645e8"), 5))
+        p.setBrush(QBrush(QColor("#17152d")))
+        p.drawEllipse(QRectF(4, 4, 192, 192))
+
+        # Schild mit sanftem Farbverlauf
+        shield = QPainterPath()
+        shield.moveTo(100, 24)
+        shield.cubicTo(122, 37, 145, 40, 163, 47)
+        shield.lineTo(158, 111)
+        shield.cubicTo(154, 146, 130, 169, 100, 184)
+        shield.cubicTo(70, 169, 46, 146, 42, 111)
+        shield.lineTo(37, 47)
+        shield.cubicTo(55, 40, 78, 37, 100, 24)
+        shield.closeSubpath()
+
+        if self.threat_detected:
+            top, bottom, edge = QColor("#ff7777"), QColor("#a90018"), QColor("#ff5364")
+        else:
+            top, bottom, edge = QColor("#55ed91"), QColor("#087b3c"), QColor("#48d982")
+
+        grad = QLinearGradient(48, 30, 145, 175)
+        grad.setColorAt(0, top)
+        grad.setColorAt(.48, QColor("#12b85a") if not self.threat_detected else QColor("#e52b3d"))
+        grad.setColorAt(1, bottom)
+        p.setPen(QPen(QColor("#d8e4e8"), 3))
+        p.setBrush(QBrush(grad))
+        p.drawPath(shield)
+
+        # Dezente innere Kontur
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(edge, 1.5))
+        p.drawPath(shield)
+
+        # Klares Statussymbol
+        symbol = QPainterPath()
+        if self.threat_detected:
+            symbol.moveTo(100, 72); symbol.lineTo(100, 119)
+            p.setPen(QPen(QColor("#ffffff"), 11, Qt.PenStyle.SolidLine,
+                          Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+            p.drawPath(symbol)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor("#ffffff"))
+            p.drawEllipse(QRectF(94, 135, 12, 12))
+        else:
+            symbol.moveTo(68, 103); symbol.lineTo(89, 124); symbol.lineTo(135, 78)
+            p.setPen(QPen(QColor("#ffffff"), 12, Qt.PenStyle.SolidLine,
+                          Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+            p.drawPath(symbol)
+        p.end()
+
+
 class MoonArtwork(QWidget):
     """Leichte, skalierbare Mondlandschaft für die linke LunaSecurity-Navigation."""
     def __init__(self, parent=None):
@@ -1539,10 +1613,6 @@ class MainWindow(QMainWindow):
         suite = QLabel("Sicherheitsübersicht für dein Linux-System"); suite.setObjectName("muted"); subrow.addWidget(suite)
         dash.addLayout(subrow)
 
-        self.alert_banner = QLabel("⚠ BEDROHUNG ERKANNT – Details siehe Sicherheitsereignisse")
-        self.alert_banner.setStyleSheet("background:#6f202b;color:#fff;border:1px solid #e05262;border-radius:8px;padding:10px;font-weight:700")
-        self.alert_banner.setWordWrap(True); self.alert_banner.hide(); dash.addWidget(self.alert_banner)
-
         summary = QHBoxLayout(); summary.setSpacing(10)
         for heading, detail, kind, accent in [
             ("Virenschutz", "ClamAV-Scanner und Echtzeitschutz", "shield", "#35dc80"),
@@ -1574,24 +1644,28 @@ class MainWindow(QMainWindow):
         for b in (self.quick_scan_button, self.full_scan_button):
             b.setMinimumHeight(42); scan_modes.addWidget(b)
         scan_box.addLayout(scan_modes)
-        scan_body = QHBoxLayout(); ring = QLabel("◈\n⌕"); ring.setAlignment(Qt.AlignmentFlag.AlignCenter); ring.setMinimumSize(190, 190); ring.setMaximumWidth(230)
-        ring.setStyleSheet("font-size:43pt;color:#d08aff;border:8px solid #8645e8;border-radius:100px;background:qradialgradient(cx:.5,cy:.5,radius:.7,fx:.5,fy:.5,stop:0 #30204e,stop:1 #111629);padding:15px")
-        scan_body.addWidget(ring, 1)
+        scan_body = QHBoxLayout()
+        self.scan_shield = DashboardShield()
+        scan_body.addWidget(self.scan_shield, 1)
         scan_info = QVBoxLayout(); scan_title = QLabel("Sicherheitsprüfung"); scan_title.setStyleSheet("font-size:19pt;font-weight:700")
         scan_hint = QLabel("Prüft wichtige Systembereiche auf Bedrohungen."); scan_hint.setObjectName("muted")
         scan_info.addWidget(scan_title); scan_info.addWidget(scan_hint)
-        self.scan_scope_label = QLabel("✓  Laufende Prozesse\n✓  Autostart-Einträge\n✓  Systemverzeichnisse\n✓  Bekannte Schadsoftware")
+        self.scan_scope_label = QLabel("✓  Echtzeitschutz\n✓  Malware-, Viren- und Trojaner-Erkennung\n✓  Wurm- und Skript-Erkennung")
         self.scan_scope_label.setStyleSheet("font-size:11pt;line-height:1.5"); scan_info.addWidget(self.scan_scope_label)
+        self.threat_hint = QLabel("⚠ Bedrohung erkannt – Details unter „Virenschutz“")
+        self.threat_hint.setWordWrap(True)
+        self.threat_hint.setStyleSheet("background:#651b27;color:#fff;border:1px solid #e05262;border-radius:7px;padding:6px;font-weight:700")
+        self.threat_hint.hide(); scan_info.addWidget(self.threat_hint)
         self.scan_button = QPushButton("▶  Scan starten"); self.scan_button.setObjectName("accentButton"); self.scan_button.setMinimumHeight(48); self.scan_button.clicked.connect(lambda: self.start_scan())
         scan_info.addWidget(self.scan_button); scan_info.addStretch(); scan_body.addLayout(scan_info, 2)
-        scan_box.addLayout(scan_body); left_col.addWidget(scan_panel, 3)
+        scan_box.addLayout(scan_body); left_col.addWidget(scan_panel, 2)
 
         log_panel = QFrame(); log_panel.setObjectName("featureCard"); log_layout = QVBoxLayout(log_panel); log_layout.setContentsMargins(10,8,10,8)
         log_head = QHBoxLayout(); log_title = QLabel("▣  Scan-Protokoll"); log_title.setStyleSheet("font-size:13pt;font-weight:700"); log_head.addWidget(log_title); log_head.addStretch()
         clear_log = QPushButton("Protokoll leeren"); clear_log.clicked.connect(lambda: self.log.clear()); log_head.addWidget(clear_log); log_layout.addLayout(log_head)
         self.log = QTextEdit(); self.log.setReadOnly(True); self.log.setMinimumHeight(140); self.log.setPlaceholderText("Scan-Ergebnisse und Sicherheitsmeldungen erscheinen hier.")
         self.log.setStyleSheet("font-family:'DejaVu Sans Mono';font-size:10pt;background:#080e1d;border:1px solid #39466e;border-radius:8px")
-        log_layout.addWidget(self.log, 1); left_col.addWidget(log_panel, 2)
+        log_layout.addWidget(self.log, 1); left_col.addWidget(log_panel, 3)
 
         stats = QHBoxLayout(); stats.setSpacing(7)
         self.stat_threats = QLabel("✓  Bedrohungen\n0"); self.stat_files = QLabel("▱  Geprüfte Dateien\n0")
@@ -3000,20 +3074,13 @@ class MainWindow(QMainWindow):
             # after a successful quarantine/delete action.
             entry.setData(257, dict(item))
             self.events_view.addItem(entry)
-        if events:
-            # Keep the warning banner tied to the persisted event list, not to
-            # a translated tab caption or a cached UI state.
-            count = len(events)
-            if APP_LANGUAGE == "en":
-                banner_text = f"⚠ {count} saved security event(s) – details under Virus protection"
-            else:
-                banner_text = f"⚠ {count} gespeicherte Sicherheitsereignisse – Details unter Virenschutz"
-            self.alert_banner.setText(banner_text)
-            self.alert_banner.setVisible(True)
-            self.alert_banner.raise_()
-        else:
+        threat_found = bool(events)
+        if hasattr(self, "scan_shield"):
+            self.scan_shield.set_threat_detected(threat_found)
+        if hasattr(self, "threat_hint"):
+            self.threat_hint.setVisible(threat_found)
+        if not events:
             self.events_view.addItem(_ui_text("Noch keine erkannten Bedrohungen gespeichert."))
-            self.alert_banner.setVisible(False)
 
     def _selected_detection_path(self):
         item = self.events_view.currentItem()
@@ -3494,6 +3561,7 @@ class MainWindow(QMainWindow):
             skipped = str(monitor.skipped)
             size_limit_hits = monitor.size_limit_count
             elapsed = max(0, int(time.monotonic() - monitor.started))
+        self.scan_shield.set_threat_detected(int(infected) > 0)
         self.stat_threats.setText(f"✓  Bedrohungen\n{infected}")
         self.stat_files.setText(f"▱  Geprüfte Dateien\n{scanned}")
         self.stat_size_limit.setText(f"◉  Größenlimit\n{size_limit_hits}")
