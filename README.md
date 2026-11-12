@@ -1,6 +1,7 @@
-# LunaSecurity
 
-## Version **0.4.31** · Debian 13 · Python 3 · Qt 6 / PySide6 · GTK 3
+## LunaSecurity
+
+## Version **0.4.32** · Debian 13 · Python 3 · Qt 6 / PySide6 · GTK 3
 **Linux-Sicherheitswerkzeuge in einer grafischen Oberfläche**  
 
 LunaSecurity bündelt verschiedene lokale Sicherheits- und Diagnosewerkzeuge in einer zentralen Desktop-Anwendung. Das Programm hilft dabei, Dateien zu prüfen, Sicherheitsereignisse nachzuverfolgen, ausgewählte Dateien in Quarantäne zu verschieben sowie den Zustand von System, Netzwerk und Firewall zu untersuchen.
@@ -28,6 +29,13 @@ LunaSecurity ist eine Bedienoberfläche für vorhandene Linux-Werkzeuge – kein
 - [Projektdateien](#projektdateien)
 
 ## Funktionsumfang
+
+### Sprache und Darstellung
+- Die Oberfläche bietet Deutsch und Englisch; die Auswahl wird dauerhaft gespeichert.
+- Zwischen dem dunklen Graphit-Design und dem hellen Luna-Design kann ohne Neustart gewechselt werden.
+
+### VirusTotal-Check und Upload nach Zustimmung
+- Virus-Total Api eingabe unter Einstellungen möglich.
 
 ### Virenprüfung mit ClamAV
 
@@ -101,11 +109,11 @@ Für grafische Administratorabfragen wird ein laufender PolicyKit-Authentifizier
 
 ### Empfohlen: Debian-Paket
 
-Lade das passende Paket `lunasecurity_0.4.31_all.deb` herunter und installiere es im Terminal:
+Lade das passende Paket `lunasecurity_0.4.32_all.deb` herunter und installiere es im Terminal:
 
 ```bash
 cd ~/Downloads
-sudo apt install ./lunasecurity_0.4.31_all.deb
+sudo apt install ./lunasecurity_0.4.32_all.deb
 ```
 
 APT löst dabei die im Paket angegebenen Abhängigkeiten auf. Anschließend findest du LunaSecurity im Anwendungsmenü oder kannst es über das Terminal starten:
@@ -119,7 +127,7 @@ lunasecurity
 Das ZIP-Archiv enthält den Python-Quellcode und das Build-Skript. Zum Erstellen des Debian-Pakets werden eine Debian-Umgebung mit den benötigten Laufzeitpaketen sowie `dpkg-deb` benötigt.
 
 ```bash
-unzip LunaSecurity_0.4.31_Github.zip
+unzip LunaSecurity_0.4.32_Github.zip
 cd LunaSecurity
 chmod +x build_deb.sh
 ./build_deb.sh
@@ -133,13 +141,13 @@ Das erzeugte Paket liegt anschließend im Verzeichnis `dist/`. Das Build-Skript 
 sudo apt update
 sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtprintsupport python3-gi gir1.2-gtk-3.0 clamav clamav-daemon clamav-freshclam rkhunter chkrootkit pkexec polkitd aide yara nftables iproute2 auditd lynis fail2ban mate-polkit
 ```
-Lade die zip Datei runter, LunaSecurity_0.4.31_GITHUB.zip
+Lade die zip Datei runter, LunaSecurity_0.4.32_GITHUB.zip
 
 Wechsle in den Download-Ordner und entpacke das Archiv:
 
 ```bash
 cd ~/Downloads
-unzip LunaSecurity_0.4.31_GITHUB.zip
+unzip LunaSecurity_0.4.32_GITHUB.zip
 ```
 
 LunaSecurity starten
@@ -162,9 +170,14 @@ Für Rootkit-, AIDE-, Netzwerk- und Firewall-Aktionen kann eine grafische Admini
 
 ## Bedienung
 
+### Scanprofile
+- **Eigenes Profil** verwendet ausschließlich die unter Einstellungen gespeicherten ClamAV-Optionen. Deaktivierte Optionen werden nicht durch Standardwerte ergänzt.
+- **Standard**, **Hoher Schutz** und **Maximaler Schutz** verwenden jeweils ihre fest definierten Scanparameter.
+- Die Profilparameter gelten gleichermaßen für Home-Verzeichnis und vollständigen Systemscan. Wenn „Versteckte Dateien und Ordner untersuchen“ im eigenen Profil ausgeschaltet ist, werden versteckte Dateien und Ordner auch bei Systemscans ausgelassen.
+
 ### Virenscan
 
-Über **Dateien / Ordner scannen** wählst du das gewünschte Prüfziel. **Home-Verzeichnis prüfen** startet einen Scan des eigenen Home-Verzeichnisses. Die Option zur automatischen Signaturaktualisierung ist standardmäßig ausgeschaltet und kann bei Bedarf aktiviert werden.
+Über **Home-Verzeichnis** wird das persönliche Home-Verzeichnis geprüft; **Vollständiger Systemscan** prüft das gesamte Dateisystem `/` mit Administratorrechten. Beide Aktionen übernehmen das oben ausgewählte Scanprofil. Für ein einzelnes Ziel bleibt der zentrale Button **Scan starten** mit Datei-/Ordnerauswahl verfügbar. Die Option zur automatischen Signaturaktualisierung ist standardmäßig ausgeschaltet und kann bei Bedarf aktiviert werden.
 
 ### Sicherheitsereignisse
 
@@ -240,6 +253,8 @@ sudo chmod 640 /var/log/clamav/lunasecurity-onaccess.log
 Wenn ClamAV die Protokolldatei neu erstellt, sollten Eigentümer, Gruppe und Rechte erneut geprüft werden.
 
 ## Firewall-Regeln testen und speichern
+
+Die drei Firewall-Aktionen sind in der Netzwerkseite als zweite Schaltflächenreihe direkt unter dem Netzwerk- und Firewall-Sicherheitscheck erreichbar.
 
 Die Firewall-Funktionen befinden sich im Ergebnisdialog der Netzwerkprüfung:
 
@@ -393,8 +408,3 @@ Fehlerberichte sollten die LunaSecurity-Version, Debian-Version, den verwendeten
 Dieses Projekt wird ohne Garantie bereitgestellt. Prüfe sicherheitsrelevante Änderungen vor dem Einsatz und bewahre bei Systemänderungen eine Möglichkeit zur Wiederherstellung.
 
 73 de DO2QG Andraes
-
-
-### Sprache und Darstellung
-- Die Oberfläche bietet Deutsch und Englisch; die Auswahl wird dauerhaft gespeichert.
-- Zwischen dem dunklen Graphit-Design und dem hellen Luna-Design kann ohne Neustart gewechselt werden.

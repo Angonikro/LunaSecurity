@@ -1,12 +1,12 @@
 from __future__ import annotations
-import os, shutil, subprocess, sys, threading, time, json, wave, tempfile, struct, math, signal, re
+import os, shutil, subprocess, sys, threading, time, json, wave, tempfile, struct, math, signal, re, hashlib, urllib.request, urllib.error, urllib.parse
 from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot, QThread, QSettings, QTimer, QTranslator, QLocale, Qt, QEvent, QPoint, QMarginsF
 from PySide6.QtGui import QAction, QIcon, QTextDocument, QTextOption, QFont, QPainter, QLinearGradient, QRadialGradient, QColor, QPolygon, QPen, QBrush, QTextCursor
 from PySide6.QtPrintSupport import QPrinter
 from PySide6.QtGui import QPageSize, QPageLayout
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QDialog,
-    QLabel, QPushButton, QTextEdit, QProgressBar, QCheckBox, QMessageBox, QFrame, QFileDialog, QTabWidget, QGroupBox, QScrollArea, QSystemTrayIcon, QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QComboBox, QSlider, QSpinBox, QStyle, QInputDialog, QSizePolicy)
+    QLabel, QPushButton, QTextEdit, QProgressBar, QCheckBox, QMessageBox, QFrame, QFileDialog, QTabWidget, QGroupBox, QScrollArea, QSystemTrayIcon, QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QComboBox, QSlider, QSpinBox, QStyle, QInputDialog, QSizePolicy, QStackedWidget, QLineEdit)
 
 def _german_file_dialog(parent, title, start_dir, directory_mode=False, file_filter="Alle Dateien (*)"):
     """Einheitlicher Qt-Dateidialog für Datei- und Ordnerauswahl, vollständig deutsch."""
@@ -93,6 +93,17 @@ from .tray import GtkStatusTray
 from . import security_modules as sec
 
 
+def _clamav_detection_type(detail):
+    """Return the ClamAV signature name from a '<path>: <signature> FOUND' line."""
+    line = str(detail).strip()
+    if not (line.endswith("FOUND") or " FOUND " in line):
+        return ""
+    prefix = line.rsplit("FOUND", 1)[0].rstrip()
+    if ": " not in prefix:
+        return ""
+    return prefix.rsplit(": ", 1)[-1].strip()
+
+
 class GermanQtTranslator(QTranslator):
     """Übersetzt die eingebauten Qt-Dialoge unabhängig von der Systemsprache."""
     _translations = {
@@ -170,7 +181,7 @@ APP_LANGUAGE = "de"
 APP_QT_TRANSLATOR = None
 APP_DIALOG_BUTTON_FIX = None
 APP_EN_DIALOG_FIX = None
-EN_TRANSLATIONS = {'Sicherheitsübersicht für dein Linux-System': 'Security overview for your Linux system', 'Dateien / Ordner scannen': 'Scan files / folders', 'Home-Verzeichnis prüfen': 'Scan home directory', 'Eigenes Profil': 'Custom profile', 'Schnellscan': 'Quick scan', 'Komplettscan': 'Full scan', 'Vor jedem Scan automatisch Virensignaturen mit freshclam aktualisieren': 'Automatically update virus signatures with freshclam before each scan', 'Virensignatur aktualisieren': 'Update virus signatures', 'Systemscan': 'System scan', 'Echtzeitschutz aktivieren': 'Enable real-time protection', 'Echtzeitschutz deaktivieren': 'Disable real-time protection', 'Echtzeitschutz: Status wird geprüft …': 'Real-time protection: checking status …', 'Beim Schließen im Infobereich weiterlaufen': 'Keep running in the system tray when closed', 'Beim Start direkt im Infobereich starten': 'Start directly in the system tray', 'LunaSecurity automatisch bei der Anmeldung starten': 'Start LunaSecurity automatically at login', 'Erweiterte Sicherheit': 'Advanced security', 'Sicherheitsereignisse': 'Security events', '⚠ {count} gespeicherte Sicherheitsereignisse – Details im Tab „Virenschutz“': '⚠ {count} saved security events – see the “Virus protection” tab', 'Quarantäne': 'Quarantine', 'Systemschutz': 'System protection', 'Reparatur & Wiederherstellung': 'Repair & recovery', 'Netzwerk': 'Network', 'Dateiwerkzeuge': 'File tools', 'Alarm & Audio': 'Alerts & audio', 'Einstellungen': 'Settings', 'Allgemeine Programmoptionen': 'General application options', 'ClamAV – Scanoptionen': 'ClamAV – scan options', 'Diese Optionen werden bei Datei- und Ordnerscans an ClamAV übergeben.': 'These options are passed to ClamAV during file and folder scans.', 'Potenziell unerwünschte Programme (PUP) erkennen': 'Detect potentially unwanted programs (PUPs)', 'Heuristische Erkennung verwenden': 'Use heuristic detection', 'Versteckte Dateien und Ordner untersuchen': 'Scan hidden files and folders', 'Dateien größer als 20 MB untersuchen (bis 2 GB)': 'Scan files larger than 20 MB (up to 2 GB)', 'Unterordner rekursiv durchsuchen': 'Scan subfolders recursively', 'Hier findest du alle aktivierbaren Optionen der Hauptoberfläche.': 'Here you can find all configurable options for the main interface.', 'Akustischen Alarm aktivieren': 'Enable audible alarm', 'WAV auswählen': 'Select WAV', 'Eingebauten Sound verwenden': 'Use built-in sound', 'Testalarm abspielen': 'Play test alarm', 'Audio-Ausgabe': 'Audio output', 'Ausgabegerät': 'Output device', 'Lautstärke': 'Volume', 'Datei auswählen und in Quarantäne verschieben': 'Select file and move to quarantine', 'Quarantäne anzeigen': 'Show quarantine', 'YARA-Regeln aktualisieren': 'Update YARA rules', 'Dashboard aktualisieren': 'Refresh dashboard', 'Bericht kopieren': 'Copy report', 'Vollständige Scanner-Ausgabe': 'Full scanner output', 'Empfohlene nächste Schritte': 'Recommended next steps', 'Liste aktualisieren': 'Refresh list', 'Sichern & deaktivieren': 'Back up & disable', 'Eintrag wiederherstellen': 'Restore entry', 'Paket sichern & reparieren': 'Back up & repair package', 'Gesicherte Paketdateien wiederherstellen': 'Restore backed-up package files', 'Installierte Pakete auf Dateiänderungen prüfen': 'Check installed packages for file changes', 'Datei endgültig löschen': 'Delete file permanently', 'In Quarantäne verschieben': 'Move to quarantine', 'Alarm bei erkannten Bedrohungen': 'Alert when threats are detected', 'Rootkit-Prüfung starten (rkhunter + chkrootkit)': 'Run rootkit check (rkhunter + chkrootkit)', 'Systemintegrität prüfen (AIDE)': 'Check system integrity (AIDE)', 'System-Audit (Autostart, Dienste, Cron, SSH)': 'System audit (autostart, services, cron, SSH)', 'Benutzer-Autostart': 'User autostart', 'Paket neu installieren': 'Reinstall package', 'Schließen': 'Close', 'Wiederherstellen': 'Restore', 'Prüfung abbrechen': 'Cancel check', 'Scan abbrechen': 'Cancel scan', 'Ergebnis kopieren': 'Copy result', 'Scan-Protokoll': 'Scan log', 'Verstrichene Zeit: 00:00': 'Elapsed time: 00:00', '● Aktiv': '● Active', 'Prüfung wird vorbereitet …': 'Preparing check …', 'ClamAV-Scan läuft': 'ClamAV scan running', 'Keine Paketsicherungen gefunden.': 'No package backups found.'}
+EN_TRANSLATIONS = {'Sicherheitsübersicht für dein Linux-System': 'Security overview for your Linux system', 'Dateien / Ordner scannen': 'Scan files / folders', 'Home-Verzeichnis prüfen': 'Scan home directory', 'Eigenes Profil': 'Custom profile', 'Standard (Empfohlen)': 'Standard (Recommended)', 'Hoher Schutz': 'High protection', 'Maximaler Schutz': 'Maximum protection', 'Profil verwalten …': 'Manage profiles …', 'Übersicht': 'Overview', 'Systemschutz – Übersicht': 'System protection – Overview', 'Sicherheitsprüfung': 'Security scan', 'Protokoll leeren': 'Clear log', 'Jetzt aktualisieren': 'Update now', 'System-Informationen': 'System information', 'Firewall-Bericht': 'Firewall report', 'Schnellscan': 'Quick scan', 'Komplettscan': 'Full scan', '⌂  Home-Verzeichnis': '⌂  Home directory', '▣  Vollständiger Systemscan': '▣  Full system scan', 'Vor jedem Scan automatisch Virensignaturen mit freshclam aktualisieren': 'Automatically update virus signatures with freshclam before each scan', 'Virensignatur aktualisieren': 'Update virus signatures', 'Systemscan': 'System scan', 'Echtzeitschutz aktivieren': 'Enable real-time protection', 'Echtzeitschutz deaktivieren': 'Disable real-time protection', 'Echtzeitschutz: Status wird geprüft …': 'Real-time protection: checking status …', 'Beim Schließen im Infobereich weiterlaufen': 'Keep running in the system tray when closed', 'Beim Start direkt im Infobereich starten': 'Start directly in the system tray', 'LunaSecurity automatisch bei der Anmeldung starten': 'Start LunaSecurity automatically at login', 'Erweiterte Sicherheit': 'Advanced security', 'Sicherheitsereignisse': 'Security events', '⚠ {count} gespeicherte Sicherheitsereignisse – Details im Tab „Virenschutz“': '⚠ {count} saved security events – see the “Virus protection” tab', 'Quarantäne': 'Quarantine', 'Systemschutz': 'System protection', 'Reparatur & Wiederherstellung': 'Repair & recovery', 'Netzwerk': 'Network', 'Dateiwerkzeuge': 'File tools', 'Alarm & Audio': 'Alerts & audio', 'Einstellungen': 'Settings', 'Allgemeine Programmoptionen': 'General application options', 'ClamAV – Scanoptionen': 'ClamAV – scan options', 'VirusTotal – API': 'VirusTotal – API', 'VirusTotal-API-Schlüssel': 'VirusTotal API key', 'API-Schlüssel wird lokal in deinen LunaSecurity-Einstellungen gespeichert und bei der Abfrage verwendet.': 'The API key is stored locally in your LunaSecurity settings and used for lookups.', 'ClamAV-Größenlimit-Überschreitungen nicht als Bedrohung zählen': 'Do not count ClamAV file-size limit exceedances as threats', 'Größenlimit': 'Size limit', 'Diese Optionen werden bei Datei- und Ordnerscans an ClamAV übergeben.': 'These options are passed to ClamAV during file and folder scans.', 'Potenziell unerwünschte Programme (PUP) erkennen': 'Detect potentially unwanted programs (PUPs)', 'Heuristische Erkennung verwenden': 'Use heuristic detection', 'Versteckte Dateien und Ordner untersuchen': 'Scan hidden files and folders', 'Dateien größer als 20 MB untersuchen (bis 2 GB)': 'Scan files larger than 20 MB (up to 2 GB)', 'Unterordner rekursiv durchsuchen': 'Scan subfolders recursively', 'Hier findest du alle aktivierbaren Optionen der Hauptoberfläche.': 'Here you can find all configurable options for the main interface.', 'Akustischen Alarm aktivieren': 'Enable audible alarm', 'WAV auswählen': 'Select WAV', 'Eingebauten Sound verwenden': 'Use built-in sound', 'Testalarm abspielen': 'Play test alarm', 'Audio-Ausgabe': 'Audio output', 'Ausgabegerät': 'Output device', 'Lautstärke': 'Volume', 'Datei auswählen und in Quarantäne verschieben': 'Select file and move to quarantine', 'Quarantäne anzeigen': 'Show quarantine', 'YARA-Regeln aktualisieren': 'Update YARA rules', 'Dashboard aktualisieren': 'Refresh dashboard', 'Bericht kopieren': 'Copy report', 'Vollständige Scanner-Ausgabe': 'Full scanner output', 'Empfohlene nächste Schritte': 'Recommended next steps', 'Liste aktualisieren': 'Refresh list', 'Sichern & deaktivieren': 'Back up & disable', 'Eintrag wiederherstellen': 'Restore entry', 'Paket sichern & reparieren': 'Back up & repair package', 'Gesicherte Paketdateien wiederherstellen': 'Restore backed-up package files', 'Installierte Pakete auf Dateiänderungen prüfen': 'Check installed packages for file changes', 'Datei endgültig löschen': 'Delete file permanently', 'In Quarantäne verschieben': 'Move to quarantine', 'Alarm bei erkannten Bedrohungen': 'Alert when threats are detected', 'Rootkit-Prüfung starten (rkhunter + chkrootkit)': 'Run rootkit check (rkhunter + chkrootkit)', 'Systemintegrität prüfen (AIDE)': 'Check system integrity (AIDE)', 'System-Audit (Autostart, Dienste, Cron, SSH)': 'System audit (autostart, services, cron, SSH)', 'Benutzer-Autostart': 'User autostart', 'Paket neu installieren': 'Reinstall package', 'Schließen': 'Close', 'Wiederherstellen': 'Restore', 'Prüfung abbrechen': 'Cancel check', 'Scan abbrechen': 'Cancel scan', 'Ergebnis kopieren': 'Copy result', 'Scan-Protokoll': 'Scan log', 'Verstrichene Zeit: 00:00': 'Elapsed time: 00:00', '● Aktiv': '● Active', 'Prüfung wird vorbereitet …': 'Preparing check …', 'ClamAV-Scan läuft': 'ClamAV scan running', 'Keine Paketsicherungen gefunden.': 'No package backups found.'}
 
 EN_TRANSLATIONS.update({
     "Echtzeitschutz – Bedrohung erkannt": "Real-time protection – Threat detected",
@@ -295,6 +306,7 @@ class RealtimeWorker(QThread):
             if p.returncode:
                 self.result.emit(detail or f"systemctl ist mit Exit-Code {p.returncode} fehlgeschlagen.", False, False)
                 return
+            # Bewährte Statusabfrage aus LunaSecurity 0.4.31 beibehalten.
             status = subprocess.run([systemctl, "is-active", "--quiet", "lunasecurity-realtime.service"],
                                     capture_output=True, timeout=10)
             active = status.returncode == 0
@@ -303,6 +315,30 @@ class RealtimeWorker(QThread):
             self.result.emit("Zeitüberschreitung beim Hintergrundauftrag. Die Oberfläche bleibt bedienbar; bitte Dienststatus prüfen.", False, False)
         except Exception as exc:
             self.result.emit(f"Echtzeitschutz-Auftrag fehlgeschlagen: {exc}", False, False)
+
+class RestoredFileScanWorker(QThread):
+    """Prüft eine wiederhergestellte Datei sofort über den laufenden ClamAV-Daemon."""
+    result = Signal(str, str, int)  # Pfad, vollständige Ausgabe, Exit-Code
+
+    def __init__(self, path):
+        super().__init__()
+        self.path = str(path)
+
+    def run(self):
+        scanner = shutil.which("clamdscan") or "/usr/bin/clamdscan"
+        try:
+            process = subprocess.run(
+                [scanner, "--fdpass", "--no-summary", self.path],
+                capture_output=True, text=True, timeout=90,
+            )
+            output = "\n".join(
+                part.strip() for part in (process.stdout, process.stderr) if part.strip()
+            )
+            self.result.emit(self.path, output, process.returncode)
+        except subprocess.TimeoutExpired:
+            self.result.emit(self.path, "Zeitüberschreitung bei der ClamAV-Prüfung der wiederhergestellten Datei.", 2)
+        except Exception as exc:
+            self.result.emit(self.path, f"ClamAV-Prüfung der wiederhergestellten Datei fehlgeschlagen: {exc}", 2)
 
 class ModuleWorker(QThread):
     result = Signal(str, str)
@@ -632,6 +668,12 @@ class ScanWorker(QThread):
                     self.result.emit("\\n\\n".join(messages + ["Keine erreichbaren Systemverzeichnisse gefunden."]))
                     return
                 args.append("--recursive=yes" if recursive else "--recursive=no")
+                if not include_hidden:
+                    # ClamAV läuft hier mit Root-Rechten direkt über Verzeichnisse.
+                    # Deshalb müssen versteckte Dateien und Verzeichnisse auch dort
+                    # explizit ausgeschlossen werden (nicht nur beim Python-Dateilisten-Scan).
+                    args.append(r"--exclude=(^|/)\\.[^/]+$")
+                    args.append(r"--exclude-dir=(^|/)\\.[^/]+(/|$)")
                 args.extend(existing_targets)
                 messages.append("Systemscan mit Administratorrechten; geprüfte Verzeichnisse: " + ", ".join(existing_targets))
                 helper = "/usr/lib/lunasecurity/clamav-scan-helper"
@@ -665,7 +707,8 @@ class ScanWorker(QThread):
                             if entry.is_file() and not entry.is_symlink() and (include_hidden or not entry.name.startswith(".")):
                                 candidates.append(str(entry))
                 elif target_path.is_file() and not target_path.is_symlink():
-                    candidates.append(str(target_path))
+                    if include_hidden or not target_path.name.startswith("."):
+                        candidates.append(str(target_path))
             candidates = list(dict.fromkeys(candidates))
             if not candidates:
                 self.total_files.emit(0)
@@ -973,8 +1016,9 @@ class ModuleProgressDialog(QDialog):
 
 class ClamScanMonitor(QDialog):
     """Einheitliche Live-Ansicht für sämtliche ClamAV-Scans."""
-    def __init__(self, target, parent=None, cancel_callback=None):
+    def __init__(self, target, parent=None, cancel_callback=None, ignore_max_filesize=True):
         super().__init__(parent)
+        self.ignore_max_filesize = bool(ignore_max_filesize)
         self.cancel_callback = cancel_callback
         self.setWindowTitle(_ui_text("LunaSecurity – ClamAV-Systemprüfung"))
         self.setMinimumSize(760, 560)
@@ -984,6 +1028,7 @@ class ClamScanMonitor(QDialog):
         self.total_files = 0
         self._checked_paths = set()
         self.threats = 0
+        self.size_limit_count = 0
         self.unreadable = 0
         self.skipped = 0
         self._current_scan_path = ""
@@ -1010,9 +1055,10 @@ class ClamScanMonitor(QDialog):
         stats = QHBoxLayout()
         self.checked_label = QLabel("0\n" + _ui_text("Geprüfte Dateien"))
         self.threat_label = QLabel("0\n" + _ui_text("Bedrohungen"))
+        self.size_limit_label = QLabel("0\n" + _ui_text("Größenlimit"))
         self.unreadable_label = QLabel("0\n" + _ui_text("Nicht lesbar"))
         self.skipped_label = QLabel("0\n" + _ui_text("Übersprungen"))
-        for label in (self.checked_label, self.threat_label, self.unreadable_label, self.skipped_label):
+        for label in (self.checked_label, self.threat_label, self.size_limit_label, self.unreadable_label, self.skipped_label):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("QLabel{background:#292b3b;border:1px solid #555875;border-radius:9px;padding:12px;font-size:12pt;font-weight:700}")
             stats.addWidget(label)
@@ -1085,6 +1131,9 @@ class ClamScanMonitor(QDialog):
                 continue
             cleaned.append(text)
             upper = text.upper()
+            if (self.ignore_max_filesize and "HEURISTICS.LIMITS.EXCEEDED.MAXFILESIZE" in upper
+                    and (upper.endswith("FOUND") or " FOUND " in upper)):
+                cleaned.append("  → Nicht vollständig geprüft (ClamAV-Dateigrößenlimit überschritten; kein Malware-Fund).")
             if upper.startswith("SCANNING "):
                 self._current_scan_path = text[9:].strip()
                 if self._current_scan_path not in self._checked_paths:
@@ -1096,7 +1145,12 @@ class ClamScanMonitor(QDialog):
                 if result_path and result_path not in self._checked_paths:
                     self._checked_paths.add(result_path)
                     self.checked += 1
-            if " FOUND" in upper or "INFECTED" in upper:
+            is_max_filesize = "HEURISTICS.LIMITS.EXCEEDED.MAXFILESIZE" in upper
+            if is_max_filesize:
+                self.size_limit_count += 1
+                if not self.ignore_max_filesize:
+                    self.threats += 1
+            elif " FOUND" in upper or "INFECTED" in upper:
                 self.threats += 1
 
             path = self._current_scan_path
@@ -1140,6 +1194,7 @@ class ClamScanMonitor(QDialog):
         if self.total_files > 0:
             self.bar.setValue(min(self.checked, self.total_files))
         self.threat_label.setText(f"{self.threats}\n" + _ui_text("Bedrohungen"))
+        self.size_limit_label.setText(f"{self.size_limit_count}\n" + _ui_text("Größenlimit"))
         self.unreadable_label.setText(f"{self.unreadable}\n" + _ui_text("Nicht lesbar"))
         self.skipped_label.setText(f"{self.skipped}\n" + _ui_text("Übersprungen"))
 
@@ -1200,17 +1255,24 @@ class ClamScanMonitor(QDialog):
                 self.log.append("\n" + "\n".join(summary_lines[-20:]))
             # Am Ende des Scanfensters die vollständigen Fundpfade gesammelt
             # anzeigen – parallel zur Fundliste im Haupt-Protokollfeld.
-            found_paths = []
+            found_items = []
             for raw in str(result).splitlines():
                 line = raw.strip()
                 if line.endswith("FOUND") or " FOUND " in line:
+                    if (self.ignore_max_filesize
+                            and "HEURISTICS.LIMITS.EXCEEDED.MAXFILESIZE" in line.upper()):
+                        continue
                     found_path = sec.detection_path(line)
-                    if found_path and found_path not in found_paths:
-                        found_paths.append(found_path)
-            if found_paths:
-                self.log.append("\nGefundene Datei(en):")
-                for found_path in found_paths:
+                    detection_type = _clamav_detection_type(line)
+                    item = (found_path, detection_type)
+                    if found_path and item not in found_items:
+                        found_items.append(item)
+            if found_items:
+                self.log.append("\\nGefundene Datei(en):")
+                for found_path, detection_type in found_items:
                     self.log.append("Datei: " + found_path)
+                    if detection_type:
+                        self.log.append("Art der Bedrohung: " + detection_type)
 
             summary = re.search(r"Scanned files:\s*(\d+)", str(result), re.IGNORECASE)
             if summary:
@@ -1221,6 +1283,127 @@ class ClamScanMonitor(QDialog):
         QTimer.singleShot(0, self._replace_close_button)
         QTimer.singleShot(150, self._replace_close_button)
 
+
+
+class VirusTotalLookupWorker(QThread):
+    finished_report = Signal(object)
+
+    def __init__(self, file_path, api_key, parent=None, upload_unknown=False):
+        super().__init__(parent)
+        self.file_path = str(file_path)
+        self.api_key = api_key
+        self.upload_unknown = bool(upload_unknown)
+
+    def _request_json(self, url, method="GET", data=None, headers=None, timeout=35):
+        request_headers = {"x-apikey": self.api_key, "Accept": "application/json"}
+        if headers:
+            request_headers.update(headers)
+        request = urllib.request.Request(url, data=data, headers=request_headers, method=method)
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read()
+        return json.loads(raw.decode("utf-8")) if raw else {}
+
+    def _upload_file(self, file_hash):
+        size = os.path.getsize(self.file_path)
+        if size > 32 * 1024 * 1024:
+            raise ValueError(
+                "Diese Datei ist größer als 32 MB. Der einfache Upload ist deshalb nicht möglich. "
+                "Bitte wähle eine kleinere Datei."
+            )
+        boundary = "----LunaSecurityVirusTotalBoundary7MA4YWxk"
+        filename = os.path.basename(self.file_path).replace('"', '_')
+        with open(self.file_path, "rb") as stream:
+            content = stream.read()
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("utf-8") + content + f"\r\n--{boundary}--\r\n".encode("ascii")
+        payload = self._request_json(
+            "https://www.virustotal.com/api/v3/files",
+            method="POST", data=body,
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            timeout=120,
+        )
+        analysis_id = payload.get("data", {}).get("id")
+        if not analysis_id:
+            raise RuntimeError("VirusTotal hat keine Analyse-ID zurückgegeben.")
+        analysis_url = "https://www.virustotal.com/api/v3/analyses/" + urllib.parse.quote(analysis_id, safe="")
+        # Analyse-Status in kurzen Abständen prüfen, ohne die Oberfläche zu blockieren.
+        for _ in range(18):
+            time.sleep(5)
+            analysis = self._request_json(analysis_url, timeout=35)
+            attrs = analysis.get("data", {}).get("attributes", {})
+            if attrs.get("status") == "completed":
+                break
+        else:
+            return {
+                "status": "pending", "hash": file_hash, "path": self.file_path,
+                "analysis_id": analysis_id,
+                "analysis_url": f"https://www.virustotal.com/gui/file/{file_hash}",
+            }
+        # Nach abgeschlossener Analyse den vollständigen Datei-Bericht laden.
+        return self._get_file_report(file_hash, self.file_path, uploaded=True)
+
+    def _get_file_report(self, file_hash, file_path, uploaded=False):
+        payload = self._request_json(f"https://www.virustotal.com/api/v3/files/{file_hash}")
+        attrs = payload.get("data", {}).get("attributes", {})
+        stats = attrs.get("last_analysis_stats", {})
+        results = attrs.get("last_analysis_results", {}) or {}
+        detections = []
+        for vendor, item in results.items():
+            category = str(item.get("category", "")).lower()
+            if category in ("malicious", "suspicious"):
+                detections.append({
+                    "vendor": vendor,
+                    "category": category,
+                    "result": item.get("result") or "Keine Bezeichnung",
+                })
+        return {
+            "status": "ok", "hash": file_hash, "path": file_path,
+            "malicious": int(stats.get("malicious", 0)),
+            "suspicious": int(stats.get("suspicious", 0)),
+            "undetected": int(stats.get("undetected", 0)),
+            "harmless": int(stats.get("harmless", 0)),
+            "total": sum(int(v or 0) for v in stats.values()),
+            "detections": detections[:30],
+            "permalink": f"https://www.virustotal.com/gui/file/{file_hash}",
+            "uploaded": uploaded,
+        }
+
+    def run(self):
+        try:
+            digest = hashlib.sha256()
+            with open(self.file_path, "rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            file_hash = digest.hexdigest()
+            try:
+                result = self._get_file_report(file_hash, self.file_path)
+                self.finished_report.emit(result)
+                return
+            except urllib.error.HTTPError as exc:
+                if exc.code != 404:
+                    raise
+            if self.upload_unknown:
+                self.finished_report.emit(self._upload_file(file_hash))
+            else:
+                self.finished_report.emit({
+                    "status": "unknown", "hash": file_hash, "path": self.file_path,
+                    "size": os.path.getsize(self.file_path),
+                })
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401:
+                message = "VirusTotal hat den API-Schlüssel abgelehnt (HTTP 401)."
+            elif exc.code == 403:
+                message = "Der API-Schlüssel hat keine Berechtigung (HTTP 403)."
+            elif exc.code == 429:
+                message = "VirusTotal-Anfragelimit erreicht (HTTP 429). Bitte später erneut versuchen."
+            else:
+                message = f"VirusTotal meldet HTTP {exc.code}: {exc.reason}"
+            self.finished_report.emit({"status": "error", "message": message})
+        except Exception as exc:
+            self.finished_report.emit({"status": "error", "message": f"VirusTotal-Prüfung fehlgeschlagen: {exc}"})
 
 
 class MainWindow(QMainWindow):
@@ -1260,96 +1443,165 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self):
         self.apply_theme(self.settings.value("theme", "dark"))
-        root=QWidget(); self.setCentralWidget(root)
-        shell=QHBoxLayout(root); shell.setContentsMargins(0,0,0,0); shell.setSpacing(0)
-        sidebar=QWidget(); sidebar.setObjectName("sidebar"); sidebar.setFixedWidth(356)
-        side_layout=QVBoxLayout(sidebar); side_layout.setContentsMargins(10,14,10,0); side_layout.setSpacing(8)
-        brand=QLabel("◈  LunaSecurity\n     Linux Security Suite")
+        root = QWidget(); self.setCentralWidget(root)
+        shell = QHBoxLayout(root); shell.setContentsMargins(0, 0, 0, 0); shell.setSpacing(0)
+        sidebar = QWidget(); sidebar.setObjectName("sidebar"); sidebar.setFixedWidth(292)
+        side_layout = QVBoxLayout(sidebar); side_layout.setContentsMargins(12, 16, 12, 10); side_layout.setSpacing(9)
+        brand = QLabel("◈  LunaSecurity\n     Linux Security Suite")
         self.brand_label = brand
-        brand.setStyleSheet("font-size:14pt;font-weight:700;color:#ffffff;padding:8px 4px 16px 4px")
+        brand.setStyleSheet("font-size:16pt;font-weight:700;color:#ffffff;padding:10px 5px 22px 5px")
         side_layout.addWidget(brand)
-        self.side_nav=QListWidget(); self.side_nav.setObjectName("sideNav"); self.side_nav.setSpacing(1)
-        side_layout.addWidget(self.side_nav,1)
+        self.side_nav = QListWidget(); self.side_nav.setObjectName("sideNav"); self.side_nav.setSpacing(2)
+        side_layout.addWidget(self.side_nav, 1)
         side_layout.addWidget(MoonArtwork(sidebar))
         shell.addWidget(sidebar)
-        content=QWidget(); shell.addWidget(content,1)
-        layout=QVBoxLayout(content); layout.setContentsMargins(14,10,14,10); layout.setSpacing(7)
-        header=QHBoxLayout(); title=QLabel("LunaSecurity"); title.setObjectName("title"); header.addWidget(title)
-        version=QLabel(f"LINUX SECURITY SUITE  ·  {__version__}"); version.setObjectName("muted"); header.addStretch(); header.addWidget(version); layout.addLayout(header)
-        subtitle=QLabel("Sicherheitsübersicht für dein Linux-System"); subtitle.setObjectName("muted"); layout.addWidget(subtitle)
+
+        content = QWidget(); shell.addWidget(content, 1)
+        layout = QVBoxLayout(content); layout.setContentsMargins(16, 12, 16, 12); layout.setSpacing(9)
+        header = QHBoxLayout()
+        title = QLabel("LunaSecurity"); title.setObjectName("title"); header.addWidget(title)
+        header.addStretch()
+        profile_label = QLabel("Profil:"); profile_label.setObjectName("muted"); header.addWidget(profile_label)
+        self.scan_profile = QComboBox()
+        self.scan_profile.addItem("Eigenes Profil", "custom")
+        self.scan_profile.addItem("Standard (Empfohlen)", "standard")
+        self.scan_profile.addItem("Hoher Schutz", "high")
+        self.scan_profile.addItem("Maximaler Schutz", "maximum")
+        self.scan_profile.addItem("Profil verwalten …", "manage")
+        saved_profile = self.settings.value("scan_profile", "custom")
+        # Ältere 0.4.32-Teststände speicherten den sichtbaren Profilnamen.
+        legacy_profiles = {"Eigenes Profil": "custom", "Standard (Empfohlen)": "standard",
+                           "Hoher Schutz": "high", "Maximaler Schutz": "maximum"}
+        saved_profile = legacy_profiles.get(saved_profile, saved_profile)
+        idx = self.scan_profile.findData(saved_profile)
+        if idx >= 0: self.scan_profile.setCurrentIndex(idx)
+        self.scan_profile.setMinimumWidth(220)
+        self.scan_profile.setToolTip("Legt das Sicherheitsniveau für Datei- und Ordnerscans fest.")
+        self.scan_profile.activated.connect(self._profile_selected)
+        header.addWidget(self.scan_profile)
+        version = QLabel(f"LINUX SECURITY SUITE  ·  {__version__}"); version.setObjectName("muted"); header.addSpacing(12); header.addWidget(version)
+        layout.addLayout(header)
+
+        self.pages = QStackedWidget(); layout.addWidget(self.pages, 1)
+        dashboard = QWidget(); self.dashboard_page = dashboard
+        dash = QVBoxLayout(dashboard); dash.setContentsMargins(0, 0, 0, 0); dash.setSpacing(10)
+        subrow = QHBoxLayout()
+        subtitle = QLabel("Systemschutz – Übersicht"); subtitle.setObjectName("pageTitle"); subrow.addWidget(subtitle)
+        subrow.addStretch()
+        suite = QLabel("Sicherheitsübersicht für dein Linux-System"); suite.setObjectName("muted"); subrow.addWidget(suite)
+        dash.addLayout(subrow)
+
         self.alert_banner = QLabel("⚠ BEDROHUNG ERKANNT – Details siehe Sicherheitsereignisse")
-        self.alert_banner.setStyleSheet("background:#6f202b;color:#fff;border:1px solid #e05262;border-radius:8px;padding:12px;font-weight:700")
-        self.alert_banner.setWordWrap(True)
-        self.alert_banner.hide()
-        layout.addWidget(self.alert_banner)
-        cards=QHBoxLayout()
-        for heading,detail in [("Virenschutz","ClamAV-Scanner und Echtzeitschutz"),
-              ("Systemschutz","Rootkit-, AIDE- und System-Audit"),
-              ("Netzwerk","Ports und Firewall-Regeln")]:
-            card=QFrame(); card.setObjectName("panel"); box=QVBoxLayout(card); h=QLabel(heading); h.setStyleSheet("font-size:13pt;font-weight:700"); d=QLabel(detail); d.setObjectName("muted"); box.addWidget(h); box.addWidget(d); cards.addWidget(card)
-        layout.addLayout(cards)
-        actions=QHBoxLayout(); self.scan_button=QPushButton("Dateien / Ordner scannen"); self.scan_button.clicked.connect(lambda _checked=False: self.start_scan()); actions.addWidget(self.scan_button)
-        self.home_button=QPushButton("Home-Verzeichnis prüfen"); self.home_button.clicked.connect(lambda:self.start_scan(str(Path.home()), full_scan=True)); actions.addWidget(self.home_button)
-        self.scan_profile = QComboBox(); self.scan_profile.addItems(["Eigenes Profil", "Schnellscan", "Komplettscan"])
-        self.scan_profile.setToolTip("Legt die Scanoptionen für den nächsten Scan fest."); actions.addWidget(self.scan_profile); layout.addLayout(actions)
+        self.alert_banner.setStyleSheet("background:#6f202b;color:#fff;border:1px solid #e05262;border-radius:8px;padding:10px;font-weight:700")
+        self.alert_banner.setWordWrap(True); self.alert_banner.hide(); dash.addWidget(self.alert_banner)
+
+        summary = QHBoxLayout(); summary.setSpacing(10)
+        for heading, detail, glyph, accent in [
+            ("Virenschutz", "ClamAV-Scanner und Echtzeitschutz", "◈", "#b66cff"),
+            ("Systemschutz", "Rootkit-, AIDE- und Integritätsprüfung", "▱", "#bd7cff"),
+            ("Netzwerk", "Ports und Firewall-Regeln", "⌁", "#55b9ff"),
+            ("Systemstatus", "Überwachung und Dienste", "⌁", "#c36cff")]:
+            card = QFrame(); card.setObjectName("featureCard"); box = QHBoxLayout(card); box.setContentsMargins(12, 10, 12, 10)
+            icon = QLabel(glyph); icon.setStyleSheet(f"font-size:27pt;font-weight:700;color:{accent};min-width:42px")
+            texts = QVBoxLayout(); h = QLabel(heading); h.setStyleSheet("font-size:12pt;font-weight:700")
+            d = QLabel(detail); d.setObjectName("muted"); d.setWordWrap(True); texts.addWidget(h); texts.addWidget(d)
+            ok = QLabel("●"); ok.setStyleSheet("color:#35dc80;font-size:16pt")
+            box.addWidget(icon); box.addLayout(texts, 1); box.addWidget(ok); summary.addWidget(card)
+        dash.addLayout(summary)
+
+        columns = QHBoxLayout(); columns.setSpacing(12)
+        left = QWidget(); left_col = QVBoxLayout(left); left_col.setContentsMargins(0,0,0,0); left_col.setSpacing(9)
+        scan_panel = QFrame(); scan_panel.setObjectName("featureCard"); scan_box = QVBoxLayout(scan_panel); scan_box.setContentsMargins(12,12,12,12); scan_box.setSpacing(9)
+        scan_modes = QHBoxLayout()
+        # Die zwei Scanaktionen verwenden immer das oben ausgewählte Profil.
+        # Home scannt ausschließlich das persönliche Benutzerverzeichnis;
+        # der vollständige Systemscan prüft / mit Administratorrechten.
+        self.quick_scan_button = QPushButton("⌂  Home-Verzeichnis")
+        self.quick_scan_button.setObjectName("accentButton")
+        self.quick_scan_button.setToolTip("Prüft dein Home-Verzeichnis mit den Einstellungen des ausgewählten Scanprofils.")
+        self.quick_scan_button.clicked.connect(lambda: self.start_scan(Path.home()))
+        self.full_scan_button = QPushButton("▣  Vollständiger Systemscan")
+        self.full_scan_button.setToolTip("Prüft das gesamte Dateisystem / mit den Einstellungen des ausgewählten Scanprofils. Administratorrechte werden über pkexec angefordert.")
+        self.full_scan_button.clicked.connect(lambda: self.start_scan("/", elevated=True))
+        for b in (self.quick_scan_button, self.full_scan_button):
+            b.setMinimumHeight(42); scan_modes.addWidget(b)
+        scan_box.addLayout(scan_modes)
+        scan_body = QHBoxLayout(); ring = QLabel("◈\n⌕"); ring.setAlignment(Qt.AlignmentFlag.AlignCenter); ring.setMinimumSize(190, 190); ring.setMaximumWidth(230)
+        ring.setStyleSheet("font-size:43pt;color:#d08aff;border:8px solid #8645e8;border-radius:100px;background:qradialgradient(cx:.5,cy:.5,radius:.7,fx:.5,fy:.5,stop:0 #30204e,stop:1 #111629);padding:15px")
+        scan_body.addWidget(ring, 1)
+        scan_info = QVBoxLayout(); scan_title = QLabel("Sicherheitsprüfung"); scan_title.setStyleSheet("font-size:19pt;font-weight:700")
+        scan_hint = QLabel("Prüft wichtige Systembereiche auf Bedrohungen."); scan_hint.setObjectName("muted")
+        scan_info.addWidget(scan_title); scan_info.addWidget(scan_hint)
+        self.scan_scope_label = QLabel("✓  Laufende Prozesse\n✓  Autostart-Einträge\n✓  Systemverzeichnisse\n✓  Bekannte Schadsoftware")
+        self.scan_scope_label.setStyleSheet("font-size:11pt;line-height:1.5"); scan_info.addWidget(self.scan_scope_label)
+        self.scan_button = QPushButton("▶  Scan starten"); self.scan_button.setObjectName("accentButton"); self.scan_button.setMinimumHeight(48); self.scan_button.clicked.connect(lambda: self.start_scan())
+        scan_info.addWidget(self.scan_button); scan_info.addStretch(); scan_body.addLayout(scan_info, 2)
+        scan_box.addLayout(scan_body); left_col.addWidget(scan_panel, 3)
+
+        log_panel = QFrame(); log_panel.setObjectName("featureCard"); log_layout = QVBoxLayout(log_panel); log_layout.setContentsMargins(10,8,10,8)
+        log_head = QHBoxLayout(); log_title = QLabel("▣  Scan-Protokoll"); log_title.setStyleSheet("font-size:13pt;font-weight:700"); log_head.addWidget(log_title); log_head.addStretch()
+        clear_log = QPushButton("Protokoll leeren"); clear_log.clicked.connect(lambda: self.log.clear()); log_head.addWidget(clear_log); log_layout.addLayout(log_head)
+        self.log = QTextEdit(); self.log.setReadOnly(True); self.log.setMinimumHeight(140); self.log.setPlaceholderText("Scan-Ergebnisse und Sicherheitsmeldungen erscheinen hier.")
+        self.log.setStyleSheet("font-family:'DejaVu Sans Mono';font-size:10pt;background:#080e1d;border:1px solid #39466e;border-radius:8px")
+        log_layout.addWidget(self.log, 1); left_col.addWidget(log_panel, 2)
+
+        stats = QHBoxLayout(); stats.setSpacing(7)
+        self.stat_threats = QLabel("✓  Bedrohungen\n0"); self.stat_files = QLabel("▱  Geprüfte Dateien\n0")
+        self.stat_unreadable = QLabel("⊘  Nicht lesbare\n0"); self.stat_skipped = QLabel("↪  Übersprungen\n0"); self.stat_duration = QLabel("◷  Dauer\n00:00:00")
+        for widget in (self.stat_threats,self.stat_files,self.stat_unreadable,self.stat_skipped,self.stat_duration):
+            widget.setObjectName("statCard"); widget.setAlignment(Qt.AlignmentFlag.AlignCenter); widget.setMinimumHeight(58); stats.addWidget(widget)
+        left_col.addLayout(stats); columns.addWidget(left, 7)
+
+        right = QWidget(); right_col = QVBoxLayout(right); right_col.setContentsMargins(0,0,0,0); right_col.setSpacing(9)
+        self.realtime_card = QFrame(); self.realtime_card.setObjectName("featureCard"); rt = QVBoxLayout(self.realtime_card)
+        rt_head = QHBoxLayout(); self.realtime_icon_label = QLabel("⬡"); self.realtime_icon_label.setStyleSheet("font-size:27pt;color:#e0a52b"); rt_head.addWidget(self.realtime_icon_label)
+        rt_text = QVBoxLayout(); self.realtime_title_label = QLabel("Echtzeitschutz: Status wird geprüft …"); self.realtime_title_label.setStyleSheet("font-size:13pt;font-weight:700;color:#e0a52b"); rt_text.addWidget(self.realtime_title_label)
+        rt_sub = QLabel("Überwacht dein System in Echtzeit (ClamAV)."); rt_sub.setObjectName("muted"); rt_sub.setWordWrap(True); rt_text.addWidget(rt_sub); rt_head.addLayout(rt_text,1); rt.addLayout(rt_head)
+        self.realtime_button = QPushButton("Echtzeitschutz deaktivieren"); self.realtime_button.clicked.connect(self.toggle_realtime); rt.addWidget(self.realtime_button)
+        right_col.addWidget(self.realtime_card)
+
+        sig_card = QFrame(); sig_card.setObjectName("featureCard"); sig = QVBoxLayout(sig_card)
+        sig_title = QLabel("◉  Virensignaturen"); sig_title.setStyleSheet("font-size:13pt;font-weight:700"); sig.addWidget(sig_title)
+        self.signature_version_label = QLabel(signature_database_versions()); self.signature_version_label.setObjectName("muted"); self.signature_version_label.setWordWrap(True); sig.addWidget(self.signature_version_label)
+        self.update_button = QPushButton("⟳  Jetzt aktualisieren"); self.update_button.clicked.connect(self.update_signatures_now); sig.addWidget(self.update_button)
+        right_col.addWidget(sig_card)
+
+        info_card = QFrame(); info_card.setObjectName("featureCard"); info = QVBoxLayout(info_card)
+        info_title = QLabel("ⓘ  System-Informationen"); info_title.setStyleSheet("font-size:13pt;font-weight:700"); info.addWidget(info_title)
+        import platform
+        self.system_info_label = QLabel(f"System: Debian GNU/Linux\nKernel: {platform.release()}\nArchitektur: {platform.machine()}\nPython: {platform.python_version()}")
+        self.system_info_label.setObjectName("muted"); info.addWidget(self.system_info_label); right_col.addWidget(info_card)
+
+        fw_card = QFrame(); fw_card.setObjectName("featureCard"); fw = QVBoxLayout(fw_card)
+        fw_title = QLabel("▦  Firewall"); fw_title.setStyleSheet("font-size:13pt;font-weight:700"); fw.addWidget(fw_title)
+        fw_hint = QLabel("Ports und Firewall-Regeln überwachen."); fw_hint.setObjectName("muted"); fw.addWidget(fw_hint)
+        fw_btn = QPushButton("Firewall-Bericht"); fw_btn.clicked.connect(lambda: self.side_nav.setCurrentRow(6)); fw.addWidget(fw_btn)
+        self.virustotal_button = QPushButton("🌐  VirusTotal-Check")
+        self.virustotal_button.setToolTip("SHA-256 einer ausgewählten Datei bei VirusTotal nachschlagen. Die Datei wird nicht hochgeladen.")
+        self.virustotal_button.clicked.connect(self.start_virustotal_check)
+        fw.addWidget(self.virustotal_button)
+        right_col.addWidget(fw_card); right_col.addStretch(); columns.addWidget(right, 3)
+        dash.addLayout(columns, 1)
+        self.pages.addWidget(dashboard)
+
         self.auto_update_check = QCheckBox("Vor jedem Scan automatisch Virensignaturen mit freshclam aktualisieren")
         self.auto_update_check.setChecked(self.settings.value("auto_freshclam", False, type=bool))
         self.auto_update_check.setToolTip("Führt vor jedem Scan eine Signaturaktualisierung mit Administrator-Passwortabfrage aus. Wenn der ClamAV-Dienst läuft, übernimmt dieser die Aktualisierung.")
         self.auto_update_check.toggled.connect(lambda value: self.settings.setValue("auto_freshclam", value))
-        self.update_button = QPushButton("Virensignatur aktualisieren")
-        self.update_button.clicked.connect(self.update_signatures_now)
-        self.signature_version_label = QLabel(_ui_text("Installierte Virensignaturen:") + " " + signature_database_versions())
-        self.signature_version_label.setObjectName("muted")
-        self.signature_version_label.setWordWrap(True)
-        layout.addWidget(self.signature_version_label)
-        maintenance_row = QHBoxLayout()
-        self.system_scan_button = QPushButton("Systemscan")
-        self.system_scan_button.setToolTip("Prüft das gesamte Wurzelverzeichnis / einschließlich geschützter Bereiche; Root-Rechte werden über pkexec angefordert.")
-        self.system_scan_button.clicked.connect(lambda: self.start_scan("/", elevated=True))
-        maintenance_row.addWidget(self.system_scan_button)
-        maintenance_row.addWidget(self.update_button)
-        self.realtime_button = QPushButton("Echtzeitschutz aktivieren")
-        self.realtime_button.clicked.connect(self.toggle_realtime)
-        maintenance_row.addWidget(self.realtime_button)
+        self.system_scan_button = self.full_scan_button
+        self._realtime_status_known = False; self._realtime_active = False; self._realtime_success = False; self._realtime_pending_action = "status"
+        QTimer.singleShot(0, self.refresh_realtime_status)
         self.realtime_status = QLabel("Echtzeitschutz: Status wird geprüft …")
-        self.realtime_status.setObjectName("muted")
-        self.realtime_status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        maintenance_row.addWidget(self.realtime_status, 1)
         self.realtime_indicator = QLabel("●")
-        self.realtime_indicator.setToolTip("Status des ClamAV-Echtzeitschutzes")
-        self.realtime_indicator.setStyleSheet("font-size:22px;font-weight:900;color:#e0a52b;padding-left:5px;padding-right:5px;")
-        maintenance_row.addWidget(self.realtime_indicator)
-        layout.addLayout(maintenance_row)
-        self._realtime_status_known = False
-        self._realtime_active = False
-        self._realtime_success = False
-        self._realtime_pending_action = "status"
-        self.refresh_realtime_status()
-        # Der alte Fortschritts-/Abbruchbereich der Hauptansicht wurde entfernt.
-        # Statusobjekte bleiben intern für bestehende Nicht-ClamAV-Prüfungen erhalten,
-        # werden aber nicht mehr in die Oberfläche eingefügt.
-        self.progress = QProgressBar(self)
-        self.progress.setRange(0, 0)
-        self.progress.hide()
-        self.cancel_scan_button = QPushButton("Scan abbrechen", self)
-        self.cancel_scan_button.setEnabled(False)
-        self.cancel_scan_button.clicked.connect(self.cancel_scan)
-        self.cancel_scan_button.hide()
-        self.log=QTextEdit(); self.log.setReadOnly(True); self.log.setMinimumHeight(152); self.log.setMaximumHeight(152); self.log.setPlaceholderText("Scan-Ergebnisse und Sicherheitsmeldungen erscheinen hier."); layout.addWidget(self.log, 0)
-        self.tray_check=QCheckBox("Beim Schließen im Infobereich weiterlaufen")
-        self.tray_check.setChecked(self.settings.value("minimize_to_tray", True, type=bool))
-        self.tray_check.toggled.connect(self.set_minimize_to_tray)
-
-        self.start_hidden_check=QCheckBox("Beim Start direkt im Infobereich starten")
-        self.start_hidden_check.setChecked(self.settings.value("start_in_tray", False, type=bool))
-        self.start_hidden_check.toggled.connect(self.set_start_in_tray)
-
-        self.autostart_check=QCheckBox("LunaSecurity automatisch bei der Anmeldung starten")
-        self.autostart_check.setChecked(self.settings.value("autostart_enabled", False, type=bool))
-        self.autostart_check.toggled.connect(self.set_autostart)
-        tabs = QTabWidget()
-        tabs.setMinimumHeight(205)
-        tabs.tabBar().hide()
+        self.progress = QProgressBar(self); self.progress.setRange(0, 0); self.progress.hide()
+        self.cancel_scan_button = QPushButton("Scan abbrechen", self); self.cancel_scan_button.setEnabled(False); self.cancel_scan_button.clicked.connect(self.cancel_scan); self.cancel_scan_button.hide()
+        self.tray_check = QCheckBox("Beim Schließen im Infobereich weiterlaufen")
+        self.tray_check.setChecked(self.settings.value("minimize_to_tray", True, type=bool)); self.tray_check.toggled.connect(self.set_minimize_to_tray)
+        self.start_hidden_check = QCheckBox("Beim Start direkt im Infobereich starten")
+        self.start_hidden_check.setChecked(self.settings.value("start_in_tray", False, type=bool)); self.start_hidden_check.toggled.connect(self.set_start_in_tray)
+        self.autostart_check = QCheckBox("LunaSecurity automatisch bei der Anmeldung starten")
+        self.autostart_check.setChecked(self.settings.value("autostart_enabled", False, type=bool)); self.autostart_check.toggled.connect(self.set_autostart)
+        tabs = QTabWidget(); tabs.setMinimumHeight(205); tabs.tabBar().hide()
         # Erweiterte Diagnose: Lynis und fail2ban werden ausschließlich lesend abgefragt.
         advanced_tab = QWidget(); advanced_layout = QVBoxLayout(advanced_tab)
         advanced_intro = QLabel("Zusätzliche Systemhärtungsprüfung und Überwachung. Diese Funktionen lesen den Systemstatus und ändern keine Sicherheitsregeln.")
@@ -1496,7 +1748,37 @@ class MainWindow(QMainWindow):
         net_tab = QWidget(); net_layout = QVBoxLayout(net_tab)
         net_btn = QPushButton("Netzwerk- und Firewall-Sicherheitscheck (mit Admin-Abfrage)")
         net_btn.clicked.connect(lambda: self.run_module("Netzwerkprüfung", sec.network_audit))
-        net_btn.setMinimumHeight(48); net_btn.setMinimumWidth(0); net_layout.addWidget(net_btn); net_layout.addStretch(); tabs.addTab(net_tab, "Netzwerk")
+        net_btn.setMinimumHeight(48); net_btn.setMinimumWidth(0); net_layout.addWidget(net_btn)
+
+        # Zweite Aktionsreihe: Firewall-Portverwaltung direkt auf der Netzwerkseite.
+        # Die eigentliche nftables-Implementierung und die getrennte LunaSecurity-
+        # Tabelle stammen aus dem vorherigen, funktionierenden Stand.
+        firewall_actions = QHBoxLayout()
+        self.firewall_block_button = QPushButton("⊘  Port gezielt sperren …")
+        self.firewall_block_button.setMinimumHeight(44)
+        self.firewall_block_button.clicked.connect(self.block_firewall_port)
+        self.firewall_persist_button = QPushButton("▣  Testregeln dauerhaft speichern")
+        self.firewall_persist_button.setMinimumHeight(44)
+        self.firewall_persist_button.clicked.connect(self.persist_firewall_guard)
+        self.firewall_rollback_button = QPushButton("↶  LunaSecurity-Sperren aufheben")
+        self.firewall_rollback_button.setMinimumHeight(44)
+        self.firewall_rollback_button.clicked.connect(self.rollback_firewall_guard)
+        firewall_actions.addWidget(self.firewall_block_button, 1)
+        firewall_actions.addWidget(self.firewall_persist_button, 1)
+        firewall_actions.addWidget(self.firewall_rollback_button, 1)
+        net_layout.addLayout(firewall_actions)
+
+        firewall_hint = QLabel(
+            "Port-Sperren werden zunächst temporär getestet. Über „Testregeln dauerhaft "
+            "speichern“ bleiben sie nach einem Neustart aktiv. „LunaSecurity-Sperren "
+            "aufheben“ entfernt ausschließlich die von LunaSecurity verwalteten Regeln. "
+            "SSH-Port 22 ist zum Schutz vor Aussperren ausgeschlossen."
+        )
+        firewall_hint.setWordWrap(True)
+        firewall_hint.setObjectName("muted")
+        net_layout.addWidget(firewall_hint)
+        net_layout.addStretch()
+        tabs.addTab(net_tab, "Netzwerk")
         file_tab = QWidget(); file_layout = QVBoxLayout(file_tab)
         yara_row = QHBoxLayout(); self.yara_path = QLabel("Kein Scan-Ziel ausgewählt")
         yara_pick = QPushButton("Datei/Ordner für YARA auswählen")
@@ -1587,6 +1869,12 @@ class MainWindow(QMainWindow):
         clam_intro.setWordWrap(True)
         clam_layout.addWidget(clam_intro)
 
+        self.ignore_max_filesize_check = QCheckBox("ClamAV-Größenlimit-Überschreitungen nicht als Bedrohung zählen")
+        self.ignore_max_filesize_check.setChecked(self.settings.value("scan_ignore_max_filesize", True, type=bool))
+        self.ignore_max_filesize_check.setToolTip("Global für alle Scanprofile: Heuristics.Limits.Exceeded.MaxFileSize wird als nicht vollständig geprüfte Datei statt als Malware-Fund behandelt. Andere Erkennungen bleiben unverändert aktiv.")
+        self.ignore_max_filesize_check.toggled.connect(lambda v: self.settings.setValue("scan_ignore_max_filesize", v))
+        clam_layout.addWidget(self.ignore_max_filesize_check)
+
         self.detect_pua_check = QCheckBox("Potenziell unerwünschte Programme (PUP) erkennen")
         self.detect_pua_check.setChecked(self.settings.value("scan_detect_pua", False, type=bool))
         self.detect_pua_check.setToolTip("Aktiviert ClamAVs Erkennung potenziell unerwünschter Anwendungen. Kann zusätzliche Treffer liefern.")
@@ -1619,6 +1907,23 @@ class MainWindow(QMainWindow):
         clam_layout.addWidget(self.auto_update_check)
         settings_layout.addWidget(clam_group)
 
+        # VirusTotal API-Zugangsdaten: maskiert anzeigen und lokal in QSettings speichern.
+        vt_group = QGroupBox("VirusTotal – API")
+        vt_layout = QVBoxLayout(vt_group)
+        vt_layout.addWidget(QLabel("VirusTotal-API-Schlüssel"))
+        self.virustotal_api_key_edit = QLineEdit()
+        self.virustotal_api_key_edit.setPlaceholderText("API-Schlüssel hier eingeben")
+        self.virustotal_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.virustotal_api_key_edit.setText(self.settings.value("virustotal_api_key", ""))
+        self.virustotal_api_key_edit.setToolTip("Der Schlüssel wird lokal in den LunaSecurity-Einstellungen gespeichert und nicht im Klartext angezeigt.")
+        self.virustotal_api_key_edit.textChanged.connect(lambda value: self.settings.setValue("virustotal_api_key", value.strip()))
+        vt_layout.addWidget(self.virustotal_api_key_edit)
+        vt_help = QLabel("Der Schlüssel wird lokal in deinen LunaSecurity-Einstellungen gespeichert. Beim Check wird nur der SHA-256-Hash abgefragt – niemals automatisch die Datei hochgeladen. VirusTotal erhält den Hash und kann Abfragen in seinen Datensatz aufnehmen. Öffentliche API: standardmäßig höchstens 4 Anfragen pro Minute.")
+        vt_help.setObjectName("muted")
+        vt_help.setWordWrap(True)
+        vt_layout.addWidget(vt_help)
+        settings_layout.addWidget(vt_group)
+
         general_group = QGroupBox("Allgemeine Programmoptionen")
         general_layout = QVBoxLayout(general_group)
         general_layout.addWidget(self.tray_check)
@@ -1638,26 +1943,52 @@ class MainWindow(QMainWindow):
             tabs.tabBar().moveTab(events_index, 0)
         # Die Navigation liegt jetzt dauerhaft links; die alte mittlere Tableiste entfällt.
         self._navigation_labels = [
-            ("Virenschutz", "◈"),
-            ("Erweiterte Sicherheit", "✦"),
-            ("Quarantäne", "⬡"),
-            ("Systemschutz", "▣"),
-            ("Reparatur & Wiederherstellung", "⚒"),
-            ("Netzwerk", "◎"),
-            ("Dateiwerkzeuge", "▤"),
-            ("Alarm & Audio", "♫"),
-            ("Einstellungen", "⚙"),
+            ("Übersicht", "⌂"), ("Virenschutz", "◈"), ("Erweiterte Sicherheit", "✦"),
+            ("Quarantäne", "⬡"), ("Systemschutz", "▣"), ("Reparatur & Wiederherstellung", "⚒"),
+            ("Netzwerk", "◎"), ("Dateiwerkzeuge", "▤"), ("Alarm & Audio", "♫"), ("Einstellungen", "⚙"),
         ]
         for label, glyph in self._navigation_labels:
             self.side_nav.addItem(QListWidgetItem(f"{glyph}   {label}"))
-        self.side_nav.currentRowChanged.connect(tabs.setCurrentIndex)
-        tabs.currentChanged.connect(self.side_nav.setCurrentRow)
+        self.tabs = tabs
+        self.pages.addWidget(tabs)
+        self.side_nav.currentRowChanged.connect(self._navigate_to)
+        tabs.currentChanged.connect(lambda index: self.side_nav.setCurrentRow(index + 1))
         self.side_nav.setCurrentRow(0)
-        layout.addWidget(tabs, 1)
-        note=QLabel("LunaSecurity führt Prüfungen nachvollziehbar aus. Rootkit- und Integritätsprüfungen können Administratorrechte benötigen. Funde werden nicht automatisch gelöscht."); note.setObjectName("muted"); note.setWordWrap(True); layout.addWidget(note)
         self.apply_theme(self.settings.value("theme", "dark"))
         self.retranslate_ui()
 
+
+    def _navigate_to(self, row):
+        if row <= 0:
+            self.pages.setCurrentIndex(0)
+            return
+        self.pages.setCurrentIndex(1)
+        if hasattr(self, "tabs"):
+            target = min(row - 1, self.tabs.count() - 1)
+            if target >= 0 and self.tabs.currentIndex() != target:
+                self.tabs.setCurrentIndex(target)
+
+    def _profile_selected(self, index):
+        """Speichert eine stabile Profil-ID, unabhängig von der UI-Sprache."""
+        profile = self.scan_profile.itemData(index) or "custom"
+        if profile == "manage":
+            self.side_nav.setCurrentRow(9)
+            previous = self.settings.value("scan_profile", "custom")
+            if previous in ("Eigenes Profil", "Standard (Empfohlen)", "Hoher Schutz", "Maximaler Schutz"):
+                previous = {"Eigenes Profil": "custom", "Standard (Empfohlen)": "standard",
+                            "Hoher Schutz": "high", "Maximaler Schutz": "maximum"}[previous]
+            old_index = self.scan_profile.findData(previous)
+            if old_index >= 0:
+                self.scan_profile.setCurrentIndex(old_index)
+            return
+        self.settings.setValue("scan_profile", profile)
+        descriptions = {
+            "custom": "Verwendet die individuellen ClamAV-Scanoptionen aus den Einstellungen.",
+            "standard": "Ausgewogene Prüfung mit heuristischer Erkennung und Unterordnern.",
+            "high": "Zusätzlich PUP-Erkennung und Prüfung versteckter Dateien.",
+            "maximum": "Alle erweiterten ClamAV-Prüfoptionen einschließlich großer Dateien.",
+        }
+        self.scan_scope_label.setText("✓  " + descriptions.get(profile, descriptions["custom"]))
 
     def change_theme(self, _index=None):
         theme = self.theme_combo.currentData()
@@ -1669,7 +2000,9 @@ class MainWindow(QMainWindow):
         if theme == "light":
             css = """
             QMainWindow,QWidget {background:#f3f5fb;color:#20263a;font-family:'Noto Sans';font-size:12pt}
-            QFrame#panel {background:#ffffff;border:1px solid #d7dced;border-radius:12px}
+            QFrame#panel,QFrame#featureCard {background:#ffffff;border:1px solid #d7dced;border-radius:12px}
+            QLabel#pageTitle {font-size:19pt;font-weight:700;color:#20263a}
+            QLabel#statCard {background:#f4f5fb;border:1px solid #d7dced;border-radius:9px;padding:8px;font-weight:700}
             QLabel#title {font-size:23pt;font-weight:700;color:#20263a}
             QLabel#muted {color:#59647d}
             QPushButton {background:#526fe0;color:white;border:1px solid #718cf4;border-radius:9px;padding:7px 11px;font-weight:600;min-height:34px}
@@ -1691,11 +2024,14 @@ class MainWindow(QMainWindow):
         else:
             css = """
             QMainWindow,QWidget {background:#111629;color:#e9edfa;font-family:'Noto Sans';font-size:12pt}
-            QFrame#panel {background:#1a2340;border:1px solid #394879;border-radius:12px}
+            QFrame#panel,QFrame#featureCard {background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #202a49,stop:1 #11192d);border:1px solid #53638f;border-radius:12px}
+            QLabel#pageTitle {font-size:19pt;font-weight:700;color:#ffffff}
+            QLabel#statCard {background:#1b2540;border:1px solid #45557e;border-radius:9px;padding:8px;font-weight:700;color:#f2f4ff}
             QLabel#title {font-size:23pt;font-weight:700;color:#ffffff}
             QLabel#muted {color:#aab8d5}
             QPushButton {background:#315bd5;color:white;border:1px solid #6484ff;border-radius:9px;padding:7px 11px;font-weight:600;min-height:34px}
             QPushButton:hover {background:#6544dc;border-color:#a78bfa}
+            QPushButton#accentButton {background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #7438d6,stop:1 #9b4ef0);border:1px solid #c18cff;font-size:12pt;font-weight:700;padding:9px}
             QPushButton:disabled {background:#39445f;color:#9aa4b8;border-color:#46516b}
             QTextEdit,QLineEdit,QComboBox,QSpinBox,QTableWidget,QListWidget {background:#0b1122;color:#e9edfa;border:1px solid #34436f;border-radius:6px;selection-background-color:#49358d;selection-color:#ffffff}
             QCheckBox {spacing:8px;color:#e9edfa}
@@ -1777,7 +2113,7 @@ class MainWindow(QMainWindow):
             self.theme_combo.setItemText(0, "Dark – Graphite" if language == "en" else "Dunkel – Graphit")
             self.theme_combo.setItemText(1, "Light – Luna" if language == "en" else "Hell – Luna")
         if hasattr(self, "side_nav"):
-            labels = ["Virus protection","Advanced security","Quarantine","System protection","Repair & recovery","Network","File tools","Alerts & audio","Settings"] if language == "en" else [x[0] for x in self._navigation_labels]
+            labels = ["Overview","Virus protection","Advanced security","Quarantine","System protection","Repair & recovery","Network","File tools","Alerts & audio","Settings"] if language == "en" else [x[0] for x in self._navigation_labels]
             for i, label in enumerate(labels):
                 item = self.side_nav.item(i)
                 if item: item.setText(f"{self._navigation_labels[i][1]}   {label}")
@@ -2035,6 +2371,7 @@ class MainWindow(QMainWindow):
         # Funde zuvor bereinigt wurden, dürfen bei einem erneuten Fund wieder
         # als Sicherheitsereignis gespeichert und gemeldet werden.
         self._resolved_detection_paths = set()
+        self.scan_started_at = time.monotonic()
 
         # Klare Regel für Ordner-Scans:
         # Alles innerhalb des persönlichen Home-Verzeichnisses läuft ohne Root.
@@ -2087,34 +2424,58 @@ class MainWindow(QMainWindow):
                     return
                 elevated = True
 
-        self.scan_button.setEnabled(False); self.home_button.setEnabled(False); self.system_scan_button.setEnabled(False); self.update_button.setEnabled(False); self.progress.hide(); self.cancel_scan_button.setEnabled(True)
+        for scan_control in (self.scan_button, self.quick_scan_button, self.full_scan_button):
+            scan_control.setEnabled(False)
+        self.update_button.setEnabled(False); self.progress.hide(); self.cancel_scan_button.setEnabled(True)
         self.log.append(f"\nScan gestartet: {target_label}")
-        scan_options = {
-            "detect_pua": self.detect_pua_check.isChecked(),
-            "heuristics": self.heuristics_check.isChecked(),
-            "hidden_files": self.hidden_files_check.isChecked(),
-            "large_files": self.large_files_check.isChecked(),
-            "recursive": self.recursive_check.isChecked(),
+        profile = self.scan_profile.currentData() or "custom"
+        if profile == "custom":
+            # Eigenes Profil bedeutet ausschließlich die individuell gespeicherten
+            # Einstellungen. Keine impliziten Standardwerte aus anderen Profilen.
+            scan_options = {
+                "detect_pua": self.detect_pua_check.isChecked(),
+                "heuristics": self.heuristics_check.isChecked(),
+                "hidden_files": self.hidden_files_check.isChecked(),
+                "large_files": self.large_files_check.isChecked(),
+                "recursive": self.recursive_check.isChecked(),
+            }
+        elif profile == "standard":
+            scan_options = {"detect_pua": False, "heuristics": True, "hidden_files": False, "large_files": False, "recursive": True}
+        elif profile == "high":
+            scan_options = {"detect_pua": True, "heuristics": True, "hidden_files": True, "large_files": False, "recursive": True}
+        elif profile == "maximum":
+            scan_options = {"detect_pua": True, "heuristics": True, "hidden_files": True, "large_files": True, "recursive": True}
+        else:
+            # Unbekannte/alte Profilkennung sicher wie Eigenes Profil behandeln.
+            scan_options = {
+                "detect_pua": self.detect_pua_check.isChecked(),
+                "heuristics": self.heuristics_check.isChecked(),
+                "hidden_files": self.hidden_files_check.isChecked(),
+                "large_files": self.large_files_check.isChecked(),
+                "recursive": self.recursive_check.isChecked(),
+            }
+        # Auch die manuelle Datei-/Ordnerauswahl läuft durch denselben
+        # Profil-Resolver wie Home- und vollständiger Systemscan.
+        # Das eigene Profil liest die aktuell sichtbaren, gespeicherten Checkbox-Werte.
+        profile_names = {
+            "custom": "Eigenes Profil",
+            "standard": "Standard (Empfohlen)",
+            "high": "Hoher Schutz",
+            "maximum": "Maximaler Schutz",
         }
-        profile = self.scan_profile.currentText()
-        if profile == "Schnellscan":
-            # Bewusst schlank: keine PUP-Suche, keine versteckten Dateien,
-            # keine großen Dateien und nur die direkte Ordnerebene.
-            scan_options.update({"detect_pua": False, "heuristics": False,
-                                 "hidden_files": False, "large_files": False,
-                                 "recursive": False})
-        elif profile == "Komplettscan":
-            # Vollständige ClamAV-Prüfung mit erweiterten Erkennungen und Limits.
-            scan_options.update({"detect_pua": True, "heuristics": True,
-                                 "hidden_files": True, "large_files": True,
-                                 "recursive": True})
-        if full_scan:
-            # Home-Scan umfasst auch versteckte Dateien und alle Unterordner.
-            scan_options.update({"hidden_files": True, "recursive": True})
+        self.log.append(
+            "Scanprofil: " + profile_names.get(profile, "Eigenes Profil")
+            + " | PUP: " + ("An" if scan_options["detect_pua"] else "Aus")
+            + " | Heuristik: " + ("An" if scan_options["heuristics"] else "Aus")
+            + " | Versteckte Dateien: " + ("An" if scan_options["hidden_files"] else "Aus")
+            + " | Große Dateien: " + ("An" if scan_options["large_files"] else "Aus")
+            + " | Unterordner: " + ("An" if scan_options["recursive"] else "Aus")
+        )
+        # Kein Scanmodus überschreibt die Profiloptionen.
         # ClamOnAcc can log file accesses caused by an intentional manual scan.
         # Suppress those mirrored on-access lines; the scan report handles them.
         self._manual_scan_realtime_suppressed_until = time.monotonic() + 5
-        self.scan_monitor = ClamScanMonitor(target_label, self, cancel_callback=self.cancel_scan)
+        self.scan_monitor = ClamScanMonitor(target_label, self, cancel_callback=self.cancel_scan, ignore_max_filesize=self.ignore_max_filesize_check.isChecked())
         self.scan_monitor.show()
         self.worker=ScanWorker(target, update_signatures=self.auto_update_check.isChecked(), scan_options=scan_options, elevated=elevated)
         self.worker.progress_batch.connect(self.scan_monitor.add_lines)
@@ -2271,6 +2632,107 @@ class MainWindow(QMainWindow):
     def refresh_realtime_status(self):
         self._start_realtime_worker("status")
 
+    def start_virustotal_check(self):
+        api_key = self.settings.value("virustotal_api_key", "", type=str).strip()
+        if not api_key:
+            QMessageBox.warning(self, "VirusTotal", "Bitte trage zuerst unter Einstellungen → VirusTotal – API deinen API-Schlüssel ein.")
+            return
+        file_path, _ = QFileDialog.getOpenFileName(self, "Datei für VirusTotal auswählen", str(Path.home()), "Alle Dateien (*)")
+        if not file_path:
+            return
+        self._start_virustotal_worker(file_path, api_key, upload_unknown=False)
+
+    def _start_virustotal_worker(self, file_path, api_key, upload_unknown=False):
+        self.virustotal_button.setEnabled(False)
+        self.virustotal_button.setText("VirusTotal lädt hoch …" if upload_unknown else "VirusTotal prüft …")
+        self.virustotal_worker = VirusTotalLookupWorker(
+            file_path, api_key, self, upload_unknown=upload_unknown
+        )
+        self.virustotal_worker.finished_report.connect(self.virustotal_check_finished)
+        self.virustotal_worker.start()
+
+    def virustotal_check_finished(self, result):
+        self.virustotal_button.setEnabled(True)
+        self.virustotal_button.setText("🌐  VirusTotal-Check")
+        status = result.get("status")
+        if status == "unknown":
+            path = result.get("path", "")
+            size = int(result.get("size", 0))
+            size_text = f"{size / (1024 * 1024):.2f} MB"
+            answer = QMessageBox.question(
+                self, "VirusTotal – Datei unbekannt",
+                "VirusTotal kennt diese Datei noch nicht.\n\n"
+                f"Datei: {os.path.basename(path)}\nGröße: {size_text}\n"
+                f"SHA-256: {result.get('hash')}\n\n"
+                "Möchtest du die Datei jetzt zur Analyse an VirusTotal hochladen?\n\n"
+                "WICHTIG: Die Datei wird an VirusTotal übertragen und kann in den "
+                "VirusTotal-Datensatz aufgenommen und für andere Nutzer zugänglich werden. "
+                "Keine vertraulichen oder persönlichen Dateien hochladen.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer == QMessageBox.StandardButton.Yes:
+                if size > 32 * 1024 * 1024:
+                    QMessageBox.warning(
+                        self, "VirusTotal – Datei zu groß",
+                        "Derzeit unterstützt der direkte Upload Dateien bis 32 MB. "
+                        "Diese Datei ist größer und wurde nicht übertragen."
+                    )
+                else:
+                    api_key = self.settings.value("virustotal_api_key", "", type=str).strip()
+                    self._start_virustotal_worker(path, api_key, upload_unknown=True)
+            else:
+                QMessageBox.information(
+                    self, "VirusTotal – Upload übersprungen",
+                    "Die Datei blieb unverändert auf deinem Rechner. Es wurde nur der SHA-256-Hash abgefragt."
+                )
+        elif status == "pending":
+            QMessageBox.information(
+                self, "VirusTotal – Analyse läuft noch",
+                "Die Datei wurde hochgeladen. VirusTotal hat die Analyse noch nicht abgeschlossen.\n\n"
+                f"SHA-256: {result.get('hash')}\nAnalyse-ID: {result.get('analysis_id')}\n\n"
+                "Du kannst den Bericht später auf VirusTotal öffnen."
+            )
+        elif status == "error":
+            QMessageBox.warning(self, "VirusTotal – Fehler", result.get("message", "Unbekannter Fehler"))
+        else:
+            malicious = result.get("malicious", 0)
+            suspicious = result.get("suspicious", 0)
+            verdict = "Keine Erkennung gemeldet." if not malicious and not suspicious else "Achtung: VirusTotal meldet mögliche Erkennungen."
+            box = QMessageBox(self)
+            box.setWindowTitle("VirusTotal – Prüfergebnis")
+            box.setIcon(QMessageBox.Icon.Warning if malicious or suspicious else QMessageBox.Icon.Information)
+            box.setText(verdict)
+            detections = result.get("detections", [])
+            detail_lines = [
+                f"Erkennungen: {malicious}",
+                f"Verdächtig: {suspicious}",
+                f"Nicht erkannt: {result.get('undetected', 0)}",
+                f"Unauffällig: {result.get('harmless', 0)}",
+                f"Ausgewertete Anbieter: {result.get('total', 0)}",
+            ]
+            if detections:
+                detail_lines.append("\\nGemeldete Anbieter:")
+                for item in detections:
+                    detail_lines.append(
+                        f"• {item.get('vendor')}: {item.get('result')} ({item.get('category')})"
+                    )
+            detail_lines.extend([
+                f"\\nDatei: {result.get('path', '')}",
+                f"SHA-256: {result.get('hash')}",
+                "",
+                "Datei wurde hochgeladen." if result.get("uploaded") else "Es wurde nur der Hash abgefragt; die Datei wurde nicht hochgeladen.",
+                "VirusTotal kann abgefragte Indikatoren und hochgeladene Dateien in seinen Datensatz aufnehmen."
+            ])
+            box.setInformativeText("\\n".join(detail_lines))
+            open_report = box.addButton("Bericht auf VirusTotal öffnen", QMessageBox.ButtonRole.ActionRole)
+            box.addButton(QMessageBox.StandardButton.Close)
+            box.exec()
+            if box.clickedButton() is open_report:
+                import webbrowser
+                webbrowser.open(result.get("permalink", "https://www.virustotal.com/"))
+        self.virustotal_worker = None
+
     def toggle_realtime(self):
         if self.realtime_worker and self.realtime_worker.isRunning():
             return
@@ -2285,7 +2747,14 @@ class MainWindow(QMainWindow):
         self._realtime_status_known = bool(success)
         self._realtime_active = bool(active) if success else False
         self._realtime_success = bool(success)
-        self.realtime_status.setText(_ui_text("Echtzeitschutz:") + " " + _ui_text("Aktiv" if active else ("Aus" if success else "Status unklar")))
+        status_label = "Aktiv" if active else ("Aus" if success else "Status unklar")
+        self.realtime_status.setText(_ui_text("Echtzeitschutz:") + " " + _ui_text(status_label))
+        if hasattr(self, "realtime_title_label"):
+            self.realtime_title_label.setText("Echtzeitschutz: " + status_label)
+            state_color = "#42e987" if active and success else "#ff6978" if success else "#e0b45a"
+            self.realtime_title_label.setStyleSheet("font-size:13pt;font-weight:700;color:" + state_color)
+        if hasattr(self, "realtime_icon_label"):
+            self.realtime_icon_label.setStyleSheet("font-size:27pt;color:" + ("#42e987" if active and success else "#ff6978" if success else "#e0b45a"))
         if success:
             self.realtime_indicator.setStyleSheet(
                 "font-size:22px;font-weight:900;color:" + ("#28e66b" if active else "#ff3b45") + ";padding-left:5px;padding-right:5px;"
@@ -2294,6 +2763,8 @@ class MainWindow(QMainWindow):
         else:
             self.realtime_indicator.setStyleSheet("font-size:22px;font-weight:900;color:#e0a52b;padding-left:5px;padding-right:5px;")
             self.realtime_indicator.setToolTip(_ui_text("Status des Echtzeitschutzes konnte nicht ermittelt werden"))
+        # Anzeigeelemente gemeinsam aktualisieren, damit kein alter grüner Statuspunkt
+        # neben einer Schaltfläche mit gegenteiliger Aktion stehen bleibt.
         self.realtime_button.setText(_ui_text("Echtzeitschutz deaktivieren" if active else "Echtzeitschutz aktivieren"))
         self.realtime_button.setEnabled(True)
         if message and message != "Status geprüft.":
@@ -2352,6 +2823,9 @@ class MainWindow(QMainWindow):
         for line in str(output).splitlines():
             line = line.strip()
             if not line or not (line.endswith("FOUND") or " FOUND " in line):
+                continue
+            if (self.settings.value("scan_ignore_max_filesize", True, type=bool)
+                    and "HEURISTICS.LIMITS.EXCEEDED.MAXFILESIZE" in line.upper()):
                 continue
             path = sec.detection_path(line)
             if not path:
@@ -2577,10 +3051,33 @@ class MainWindow(QMainWindow):
             getattr(self, "_quarantine_move_suppressed_paths", set()).discard(restored_path)
             self.log.append(result)
             self.refresh_quarantine()
-            # ClamOnAcc observes the newly written file at its original path.
-            # No second manual scan/dialog is started here.
+            # File-creation events are not guaranteed to be emitted by
+            # clamonacc on every filesystem/backend. Explicitly hand the restored
+            # path to the active clamd daemon so restoration is checked at once.
+            self._scan_restored_file_realtime(restored_path)
         except Exception as exc:
             QMessageBox.critical(self, "Wiederherstellen fehlgeschlagen", str(exc))
+
+    def _scan_restored_file_realtime(self, path):
+        worker = RestoredFileScanWorker(path)
+        self._restored_file_scan_workers = getattr(self, "_restored_file_scan_workers", set())
+        self._restored_file_scan_workers.add(worker)
+        _background_workers.add(worker)
+        worker.result.connect(self._restored_file_scan_finished)
+        worker.finished.connect(lambda w=worker: self._restored_file_scan_workers.discard(w))
+        worker.finished.connect(lambda w=worker: _background_workers.discard(w))
+        self.log.append("Echtzeitschutz: Wiederhergestellte Datei wird sofort erneut geprüft …")
+        worker.start()
+
+    @Slot(str, str, int)
+    def _restored_file_scan_finished(self, path, output, returncode):
+        if " FOUND" in str(output).upper() or str(output).strip().endswith("FOUND"):
+            self.report_detections(output, source="Echtzeitschutz")
+            self.log.append("Echtzeitschutz: Bedrohung nach Wiederherstellung erneut erkannt.")
+        elif returncode == 0:
+            self.log.append(f"Echtzeitschutz: Wiederhergestellte Datei geprüft – keine Bedrohung: {path}")
+        else:
+            self.log.append("Echtzeitschutz: Prüfung der wiederhergestellten Datei nicht möglich. " + (output or f"ClamAV-Exit-Code {returncode}"))
 
     def delete_quarantine_selected(self):
         entry_id = self._selected_quarantine_id()
@@ -2828,7 +3325,10 @@ class MainWindow(QMainWindow):
 
     @Slot(str)
     def scan_finished(self,text):
-        self.progress.hide(); self.scan_button.setEnabled(True); self.home_button.setEnabled(True); self.system_scan_button.setEnabled(True); self.update_button.setEnabled(True); self.cancel_scan_button.setEnabled(False)
+        self.progress.hide()
+        for scan_control in (self.scan_button, self.quick_scan_button, self.full_scan_button):
+            scan_control.setEnabled(True)
+        self.update_button.setEnabled(True); self.cancel_scan_button.setEnabled(False)
         if self.scan_monitor is not None:
             self.scan_monitor.finish(text)
             # Den angezeigten Scanumfang direkt aus dem Scanfenster übernehmen.
@@ -2857,19 +3357,59 @@ class MainWindow(QMainWindow):
             self.report_detections(text, source="Manueller Scan")
             # Show every detected file path directly in the main activity
             # panel (the red-marked area), not only in the event list below.
-            found_paths = []
+            found_items = []
             for line in str(text).splitlines():
                 line = line.strip()
                 if line.endswith("FOUND") or " FOUND " in line:
+                    if (self.settings.value("scan_ignore_max_filesize", True, type=bool)
+                            and "HEURISTICS.LIMITS.EXCEEDED.MAXFILESIZE" in line.upper()):
+                        continue
                     found_path = sec.detection_path(line)
-                    if found_path and found_path not in found_paths:
-                        found_paths.append(found_path)
-            if found_paths:
+                    detection_type = _clamav_detection_type(line)
+                    item = (found_path, detection_type)
+                    if found_path and item not in found_items:
+                        found_items.append(item)
+            if found_items:
                 self.log.append("Gefundene Datei(en):")
-                for found_path in found_paths:
+                for found_path, detection_type in found_items:
                     self.log.append(f"Datei: {found_path}")
+                    if detection_type:
+                        self.log.append("Art der Bedrohung: " + detection_type)
         self.log.append("Scan-Aufgabe beendet.")
         self.signature_version_label.setText(_ui_text("Installierte Virensignaturen:") + " " + signature_database_versions())
+        # Die Dashboard-Kennzahlen werden aus dem tatsächlichen ClamAV-Bericht gefüllt.
+        def metric(pattern, default="0"):
+            match = re.search(pattern, str(text), re.IGNORECASE | re.MULTILINE)
+            return match.group(1) if match else default
+        infected = metric(r"Infected files:\s*(\d+)")
+        if self.settings.value("scan_ignore_max_filesize", True, type=bool):
+            size_limit_hits = sum(
+                1 for line in str(text).splitlines()
+                if "HEURISTICS.LIMITS.EXCEEDED.MAXFILESIZE" in line.upper()
+                and (line.strip().endswith("FOUND") or " FOUND " in line)
+            )
+            infected = str(max(0, int(infected) - size_limit_hits))
+        scanned = metric(r"Scanned files:\s*(\d+)")
+        errors = metric(r"(\d+) errors?", "0")
+        skipped = metric(r"Skipped files:\s*(\d+)", "0")
+        elapsed = max(0, int(time.monotonic() - getattr(self, "scan_started_at", time.monotonic())))
+        # Die Scan-Dialog-Zähler sind die maßgebliche Quelle: ClamAV-Ausgaben
+        # können je nach Scanart/Version unterschiedliche Zusammenfassungen liefern.
+        monitor = self.scan_monitor
+        if monitor is not None:
+            infected = str(monitor.threats)
+            scanned = str(monitor.checked)
+            errors = str(monitor.unreadable)
+            skipped = str(monitor.skipped)
+            elapsed = max(0, int(time.monotonic() - monitor.started))
+        self.stat_threats.setText(f"✓  Bedrohungen\n{infected}")
+        self.stat_files.setText(f"▱  Geprüfte Dateien\n{scanned}")
+        self.stat_unreadable.setText(f"⊘  Nicht lesbare\n{errors}")
+        self.stat_skipped.setText(f"↪  Übersprungen\n{skipped}")
+        self.stat_duration.setText(f"◷  Dauer\n{elapsed//3600:02d}:{(elapsed//60)%60:02d}:{elapsed%60:02d}")
+        for card in (self.stat_threats, self.stat_files, self.stat_unreadable, self.stat_skipped, self.stat_duration):
+            card.update()
+            card.repaint()
         # Ergebnis, Kopieren und Schließen sind im gemeinsamen ClamAV-Fenster.
 
     def _show_test_report(self, title, result):

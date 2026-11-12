@@ -17,8 +17,19 @@ def main():
         print("Dieses Hilfsprogramm muss über pkexec gestartet werden.", file=sys.stderr)
         return 2
     request = urllib.request.Request(URL, headers={"User-Agent": "LunaSecurity-YARA-Updater/1.0"})
-    with tempfile.TemporaryDirectory(prefix="lunasecurity-yara-") as temp:
-        archive = Path(temp) / "rules.tar.gz"
+    # Staging liegt bewusst im Ziel-Dateisystem. /tmp und /etc können
+    # getrennte Mounts sein; rename() über diese Grenze scheitert mit EXDEV.
+    DEST.parent.mkdir(parents=True, exist_ok=True)
+
+    # Falls ein früherer Prozess nach dem Sichern des alten Regelsatzes
+    # unterbrochen wurde, zuerst den letzten gültigen Stand wiederherstellen.
+    backup = DEST.with_name("yara-rules.previous")
+    if not DEST.exists() and backup.exists():
+        backup.rename(DEST)
+
+    with tempfile.TemporaryDirectory(prefix=".lunasecurity-yara-", dir=DEST.parent) as temp:
+        temp_path = Path(temp)
+        archive = temp_path / "rules.tar.gz"
         with urllib.request.urlopen(request, timeout=60) as response, archive.open("wb") as output:
             total = 0
             while True:
@@ -30,7 +41,7 @@ def main():
                     raise RuntimeError("Download überschreitet die erlaubte Größe von 80 MiB.")
                 output.write(chunk)
 
-        staging = Path(temp) / "rules"
+        staging = temp_path / "rules"
         staging.mkdir()
         extracted = 0
         with tarfile.open(archive, "r:gz") as bundle:
@@ -60,10 +71,14 @@ def main():
         if extracted == 0:
             raise RuntimeError("Im heruntergeladenen Repository wurden keine YARA-Regeln gefunden.")
 
-        DEST.parent.mkdir(parents=True, exist_ok=True)
-        backup = DEST.with_name("yara-rules.previous")
+        # Einen veralteten Sicherungsordner nur entfernen, wenn der aktive
+        # Regelsatz vorhanden ist. So wird bei einem abgebrochenen früheren
+        # Update niemals die einzige gültige Kopie gelöscht.
         if backup.exists():
-            shutil.rmtree(backup)
+            if DEST.exists():
+                shutil.rmtree(backup)
+            else:
+                backup.rename(DEST)
         if DEST.exists():
             DEST.rename(backup)
         try:

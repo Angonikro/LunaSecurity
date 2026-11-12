@@ -1,4 +1,29 @@
-# Änderungsprotokoll LunaSecurity
+# Changelog
+
+## 0.4.32 – Neues Design - VirusTotal-Check und Upload nach Zustimmung
+- Hauptoberfläche im Graphit-/Violett-Stil überarbeitet: kompaktere Navigation, klarere Kopfzeile und stärker hervorgehobene Profilwahl.
+- Profil-Auswahl dauerhaft oben rechts integriert: Eigenes Profil, Standard (Empfohlen), Hoher Schutz und Maximaler Schutz.
+- Scanprofile werden gespeichert. „Profil verwalten …“ führt direkt zu den ClamAV-Scanoptionen.
+- Bestehende Sicherheitsmodule, Scanfenster, Quarantäne- und Tray-Funktionen bleiben erhalten.
+- Wenn ein SHA-256-Hash bei VirusTotal unbekannt ist, fragt LunaSecurity jetzt ausdrücklich, ob die Datei zur Analyse hochgeladen werden soll.
+- Der Upload erfolgt nur nach ausdrücklicher Zustimmung; bei Ablehnung bleibt die Datei lokal.
+- Nach dem Upload wird der Analysefortschritt abgefragt und anschließend der Datei-Bericht mit Erkennungszahlen sowie den meldenden Anbietern angezeigt.
+- Direkter Upload derzeit bis 32 MB. Vertrauliche oder personenbezogene Dateien nicht hochladen: VirusTotal kann übermittelte Dateien und Indikatoren in seinen Datensatz aufnehmen.
+- Bei erkannten Dateien wird jetzt neben dem Dateipfad auch die genaue ClamAV-Signatur bzw. Erkennungsart angezeigt – sowohl im Live-Scanfenster als auch im Haupt-Scanprotokoll.
+- Globale Einstellung unter „Einstellungen → ClamAV – Scanoptionen“ ergänzt: ClamAV-Meldungen `Heuristics.Limits.Exceeded.MaxFileSize` können ein- oder ausgeschaltet als Bedrohung gezählt werden.
+- Standardmäßig aktiv: Größenlimit-Überschreitungen werden als „nicht vollständig geprüft“ separat gezählt und nicht in die Bedrohungs-/Sicherheitsereignisliste übernommen. Andere ClamAV-Erkennungen bleiben unverändert aktiv.
+- Bei deaktivierter Option werden diese Meldungen wieder wie normale Bedrohungsfunde gezählt und protokolliert. Die Einstellung gilt global für alle Scanprofile.
+- YARA-Regelupdate: temporäres Download-/Entpackverzeichnis liegt jetzt auf demselben Dateisystem wie `/etc/lunasecurity/yara-rules`; Wiederherstellung eines Sicherungsstands nach abgebrochenem Update ergänzt.
+- Echtzeitschutz-Karte korrigiert: Überschrift und Symbol sind nun an die tatsächliche Statusabfrage gebunden; bewährte systemctl-is-active-Abfrage aus 0.4.31 wiederverwendet.
+- Echtzeitschutz-Anzeige nach Aktivieren/Deaktivieren anhand von systemd `ActiveState` verifiziert; Statuspunkt, Beschriftung und Schaltfläche werden gemeinsam aktualisiert.
+- Netzwerkseite um eine zweite Schaltflächenreihe für temporäre Port-Sperren, dauerhaftes Speichern und das Aufheben eigener LunaSecurity-Sperren ergänzt.
+- Eigenes Profil verwendet ausschließlich die individuell gespeicherten ClamAV-Optionen (PUP, Heuristik, versteckte Dateien, Dateigröße und Unterordner).
+- Versteckte Dateien und Verzeichnisse werden auch bei privilegierten Systemscans ausgeschlossen, wenn die Option deaktiviert ist.
+- Explizit ausgewählte versteckte Einzeldateien werden bei deaktivierter Option ebenfalls übersprungen.
+- Scan-Auswahl vereinfacht: Die separaten Schaltflächen „Datei / Ordner scannen“ und „Home-Verzeichnis“ in der oberen Modusleiste entfernt.
+- Die beiden verbleibenden Aktionen heißen jetzt „Home-Verzeichnis“ und „Vollständiger Systemscan“.
+- Beide Scanaktionen verwenden immer das oben ausgewählte Profil (Eigenes Profil, Standard, Hoher Schutz oder Maximaler Schutz); kein Scanmodus überschreibt die Profiloptionen.
+- Der zentrale Button „Scan starten“ für die gezielte Datei-/Ordnerauswahl bleibt erhalten.
 
 ## Version 0.4.31
 - Manuelle ClamAV-Scans unterdrücken zeitgleich ausgelöste ClamOnAcc-Zugriffsmeldungen einschließlich kurzer Nachlaufzeit; nur der manuelle Scanbericht meldet den Fund. Das Echtzeit-Fenster bleibt echten, unabhängigen On-Access-Funden vorbehalten.
@@ -624,3 +649,11 @@
 
 ## 0.3.60
 - Die Schaltflächen „Virensignaturen jetzt aktualisieren“ und „Echtzeitschutz aktivieren/deaktivieren“ stehen jetzt nebeneinander in einer gemeinsamen Zeile.
+
+
+## 0.4.32 – VirusTotal-Abgleich fertiggestellt
+- Dashboard-Schaltfläche „VirusTotal-Check“ ergänzt.
+- Datei auswählen, SHA-256 lokal berechnen und vorhandenen VirusTotal-Bericht über API v3 abrufen.
+- Anzeige von Erkennungen, verdächtigen Treffern, nicht erkannten und unauffälligen Anbietern.
+- API-Schlüssel wird aus den Einstellungen verwendet; Datei-Upload findet nicht statt.
+- Fehlerbehandlung für ungültigen Schlüssel, fehlende Berechtigung, unbekannten Hash und API-Limit.
