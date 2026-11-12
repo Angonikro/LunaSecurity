@@ -1,8 +1,8 @@
 from __future__ import annotations
 import os, shutil, subprocess, sys, threading, time, json, wave, tempfile, struct, math, signal, re, hashlib, urllib.request, urllib.error, urllib.parse
 from pathlib import Path
-from PySide6.QtCore import QObject, Signal, Slot, QThread, QSettings, QTimer, QTranslator, QLocale, Qt, QEvent, QPoint, QMarginsF
-from PySide6.QtGui import QAction, QIcon, QTextDocument, QTextOption, QFont, QPainter, QLinearGradient, QRadialGradient, QColor, QPolygon, QPen, QBrush, QTextCursor
+from PySide6.QtCore import QObject, Signal, Slot, QThread, QSettings, QTimer, QTranslator, QLocale, Qt, QEvent, QPoint, QMarginsF, QRectF
+from PySide6.QtGui import QAction, QIcon, QTextDocument, QTextOption, QFont, QPainter, QLinearGradient, QRadialGradient, QColor, QPolygon, QPen, QBrush, QTextCursor, QPainterPath
 from PySide6.QtPrintSupport import QPrinter
 from PySide6.QtGui import QPageSize, QPageLayout
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QDialog,
@@ -844,6 +844,54 @@ class PackageVerifyWorker(QThread):
 
 
 
+class DashboardIcon(QWidget):
+    """Kompakte, farbige Vektor-Symbole für die Dashboard-Kategorien."""
+    def __init__(self, kind, accent, parent=None):
+        super().__init__(parent)
+        self.kind = kind
+        self.accent = QColor(accent)
+        self.setFixedSize(46, 46)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.scale(self.width() / 48.0, self.height() / 48.0)
+        glow = QColor(self.accent); glow.setAlpha(55)
+        pen = QPen(glow, 6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        p.setPen(pen); p.setBrush(Qt.BrushStyle.NoBrush)
+        self._draw_symbol(p)
+        pen = QPen(self.accent, 2.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        p.setPen(pen); p.setBrush(Qt.BrushStyle.NoBrush)
+        self._draw_symbol(p)
+        p.end()
+
+    def _draw_symbol(self, p):
+        path = QPainterPath()
+        if self.kind == "shield":
+            path.moveTo(24, 4); path.lineTo(41, 11); path.lineTo(39, 28)
+            path.quadTo(37, 39, 24, 45); path.quadTo(11, 39, 9, 28)
+            path.lineTo(7, 11); path.closeSubpath()
+            p.drawPath(path)
+            check = QPainterPath(); check.moveTo(15, 24); check.lineTo(21, 30); check.lineTo(33, 17)
+            p.drawPath(check)
+        elif self.kind == "layers":
+            p.drawPolygon(QPolygon([QPoint(24, 5), QPoint(43, 15), QPoint(24, 25), QPoint(5, 15)]))
+            p.drawPolyline(QPolygon([QPoint(7, 24), QPoint(24, 34), QPoint(41, 24)]))
+            p.drawPolyline(QPolygon([QPoint(7, 32), QPoint(24, 42), QPoint(41, 32)]))
+        elif self.kind == "wifi":
+            p.drawArc(QRectF(5, 7, 38, 34), 35 * 16, 110 * 16)
+            p.drawArc(QRectF(12, 16, 24, 23), 35 * 16, 110 * 16)
+            p.drawArc(QRectF(19, 25, 10, 13), 35 * 16, 110 * 16)
+            p.setBrush(self.accent); p.drawEllipse(QRectF(21, 39, 6, 6))
+        elif self.kind == "monitor":
+            p.drawRoundedRect(QRectF(5, 5, 38, 27), 3, 3)
+            pulse = QPainterPath(); pulse.moveTo(9, 19); pulse.lineTo(17, 19)
+            pulse.lineTo(21, 12); pulse.lineTo(26, 25); pulse.lineTo(30, 16); pulse.lineTo(33, 19); pulse.lineTo(39, 19)
+            p.drawPath(pulse)
+            p.drawLine(24, 32, 24, 39); p.drawLine(16, 42, 32, 42)
+
+
 class MoonArtwork(QWidget):
     """Leichte, skalierbare Mondlandschaft für die linke LunaSecurity-Navigation."""
     def __init__(self, parent=None):
@@ -1410,7 +1458,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("LunaSecurity – Linux Security Suite")
-        self.resize(1433, 900)  # Fenster gegenüber 0.4.30 um ca. 3 cm verbreitert
+        self.resize(1547, 900)  # Weitere 0,5 cm breiter; Version bleibt 0.4.33
         self.setMinimumSize(980, 680)
         self.bridge = Bridge()
         self.bridge.show_window.connect(self.show_from_tray)
@@ -1496,13 +1544,13 @@ class MainWindow(QMainWindow):
         self.alert_banner.setWordWrap(True); self.alert_banner.hide(); dash.addWidget(self.alert_banner)
 
         summary = QHBoxLayout(); summary.setSpacing(10)
-        for heading, detail, glyph, accent in [
-            ("Virenschutz", "ClamAV-Scanner und Echtzeitschutz", "◈", "#b66cff"),
-            ("Systemschutz", "Rootkit-, AIDE- und Integritätsprüfung", "▱", "#bd7cff"),
-            ("Netzwerk", "Ports und Firewall-Regeln", "⌁", "#55b9ff"),
-            ("Systemstatus", "Überwachung und Dienste", "⌁", "#c36cff")]:
+        for heading, detail, kind, accent in [
+            ("Virenschutz", "ClamAV-Scanner und Echtzeitschutz", "shield", "#35dc80"),
+            ("Systemschutz", "Rootkit-, AIDE- und Integritätsprüfung", "layers", "#ff9d32"),
+            ("Netzwerk", "Ports und Firewall-Regeln", "wifi", "#28aaff"),
+            ("Systemstatus", "Überwachung und Dienste", "monitor", "#45dce0")]:
             card = QFrame(); card.setObjectName("featureCard"); box = QHBoxLayout(card); box.setContentsMargins(12, 10, 12, 10)
-            icon = QLabel(glyph); icon.setStyleSheet(f"font-size:27pt;font-weight:700;color:{accent};min-width:42px")
+            icon = DashboardIcon(kind, accent)
             texts = QVBoxLayout(); h = QLabel(heading); h.setStyleSheet("font-size:12pt;font-weight:700")
             d = QLabel(detail); d.setObjectName("muted"); d.setWordWrap(True); texts.addWidget(h); texts.addWidget(d)
             ok = QLabel("●"); ok.setStyleSheet("color:#35dc80;font-size:16pt")
@@ -1547,8 +1595,9 @@ class MainWindow(QMainWindow):
 
         stats = QHBoxLayout(); stats.setSpacing(7)
         self.stat_threats = QLabel("✓  Bedrohungen\n0"); self.stat_files = QLabel("▱  Geprüfte Dateien\n0")
+        self.stat_size_limit = QLabel("◉  Größenlimit\n0")
         self.stat_unreadable = QLabel("⊘  Nicht lesbare\n0"); self.stat_skipped = QLabel("↪  Übersprungen\n0"); self.stat_duration = QLabel("◷  Dauer\n00:00:00")
-        for widget in (self.stat_threats,self.stat_files,self.stat_unreadable,self.stat_skipped,self.stat_duration):
+        for widget in (self.stat_threats,self.stat_files,self.stat_size_limit,self.stat_unreadable,self.stat_skipped,self.stat_duration):
             widget.setObjectName("statCard"); widget.setAlignment(Qt.AlignmentFlag.AlignCenter); widget.setMinimumHeight(58); stats.addWidget(widget)
         left_col.addLayout(stats); columns.addWidget(left, 7)
 
@@ -3382,12 +3431,12 @@ class MainWindow(QMainWindow):
             match = re.search(pattern, str(text), re.IGNORECASE | re.MULTILINE)
             return match.group(1) if match else default
         infected = metric(r"Infected files:\s*(\d+)")
+        size_limit_hits = sum(
+            1 for line in str(text).splitlines()
+            if "HEURISTICS.LIMITS.EXCEEDED.MAXFILESIZE" in line.upper()
+            and (line.strip().endswith("FOUND") or " FOUND " in line)
+        )
         if self.settings.value("scan_ignore_max_filesize", True, type=bool):
-            size_limit_hits = sum(
-                1 for line in str(text).splitlines()
-                if "HEURISTICS.LIMITS.EXCEEDED.MAXFILESIZE" in line.upper()
-                and (line.strip().endswith("FOUND") or " FOUND " in line)
-            )
             infected = str(max(0, int(infected) - size_limit_hits))
         scanned = metric(r"Scanned files:\s*(\d+)")
         errors = metric(r"(\d+) errors?", "0")
@@ -3401,13 +3450,15 @@ class MainWindow(QMainWindow):
             scanned = str(monitor.checked)
             errors = str(monitor.unreadable)
             skipped = str(monitor.skipped)
+            size_limit_hits = monitor.size_limit_count
             elapsed = max(0, int(time.monotonic() - monitor.started))
         self.stat_threats.setText(f"✓  Bedrohungen\n{infected}")
         self.stat_files.setText(f"▱  Geprüfte Dateien\n{scanned}")
+        self.stat_size_limit.setText(f"◉  Größenlimit\n{size_limit_hits}")
         self.stat_unreadable.setText(f"⊘  Nicht lesbare\n{errors}")
         self.stat_skipped.setText(f"↪  Übersprungen\n{skipped}")
         self.stat_duration.setText(f"◷  Dauer\n{elapsed//3600:02d}:{(elapsed//60)%60:02d}:{elapsed%60:02d}")
-        for card in (self.stat_threats, self.stat_files, self.stat_unreadable, self.stat_skipped, self.stat_duration):
+        for card in (self.stat_threats, self.stat_files, self.stat_size_limit, self.stat_unreadable, self.stat_skipped, self.stat_duration):
             card.update()
             card.repaint()
         # Ergebnis, Kopieren und Schließen sind im gemeinsamen ClamAV-Fenster.

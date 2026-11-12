@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.33 – Dashboard-Symbole farblich überarbeitet
+- Die vier Dashboard-Kategorien haben jetzt eindeutige Vektorsymbole: Schild für Virenschutz, Ebenen für Systemschutz, WLAN für Netzwerk und Monitor mit Pulslinie für Systemstatus.
+- Eigene Akzentfarben: Grün, Orange, Blau und Türkis. Das übrige Dashboard- und Scanlayout bleibt unverändert.
+- Die untere Scan-Kennzahlenleiste zeigt jetzt zusätzlich „Größenlimit“ mit der Anzahl der Dateien, die wegen ClamAVs Dateigrößenlimit nicht vollständig geprüft werden konnten.
+- Der Wert wird direkt aus demselben Live-Scanmonitor übernommen wie im Scanfenster; dadurch stimmen beide Anzeigen überein.
+- Die übrigen Scan-Kennzahlen und das bestehende Design bleiben unverändert.
+
 ## 0.4.32 – Neues Design - VirusTotal-Check und Upload nach Zustimmung
 - Hauptoberfläche im Graphit-/Violett-Stil überarbeitet: kompaktere Navigation, klarere Kopfzeile und stärker hervorgehobene Profilwahl.
 - Profil-Auswahl dauerhaft oben rechts integriert: Eigenes Profil, Standard (Empfohlen), Hoher Schutz und Maximaler Schutz.
@@ -657,3 +664,7 @@
 - Anzeige von Erkennungen, verdächtigen Treffern, nicht erkannten und unauffälligen Anbietern.
 - API-Schlüssel wird aus den Einstellungen verwendet; Datei-Upload findet nicht statt.
 - Fehlerbehandlung für ungültigen Schlüssel, fehlende Berechtigung, unbekannten Hash und API-Limit.
+
+
+### Fensterbreite (Version 0.4.33)
+- Hauptfenster gegenüber dem vorherigen Stand um weitere ca. 1 cm verbreitert (insgesamt ca. 2,5 cm gegenüber der ursprünglichen Breite). Versionsnummer bleibt unverändert bei 0.4.33.
