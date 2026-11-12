@@ -1,8 +1,29 @@
+## 0.4.34 – Navigationsschrift korrigiert -  Vollbild-Layout und Navigation
+- Linke Navigation: Schriftgewicht direkt an jedem QListWidget-Eintrag auf ExtraBold (800) gesetzt, da die bisherige QSS-Angabe auf dem Zielsystem nicht sichtbar kräftiger gerendert wurde.
+- Schriftgröße bleibt bei 9 pt; Symbole und Abstände bleiben unverändert.
+- Linke Navigation: Beschriftungen im hellen und dunklen Design bei unveränderter Schriftgröße mit Semibold (600) kräftiger dargestellt. Symbole und Abstände unverändert.
+- Rechte Dashboard-Seitenleiste: Firewall-Karte bleibt oben; flexibler Streckbereich füllt die freie Höhe, damit beim Maximieren keine ungenutzte Lücke unterhalb des Inhalts entsteht.
+- Linke Seitenleiste: Schrift im Markenbereich von 13 pt auf 12 pt und Menüschrift von 10 pt auf 9 pt verkleinert.
+- Hauptfensterbreite von 0.4.33 (1547 px) und alle übrigen Funktionen, Farben und Abstände bleiben erhalten.
+
+## 0.4.33 – Dashboard-Layout und Navigation
+- Rechte Dashboard-Seitenleiste: Firewall-Karte füllt den verfügbaren vertikalen Restbereich beim Maximieren aus.
+- Linke Navigation: Schrift im Markenbereich und in der Menüleiste verkleinert.
+- Versionsnummer bleibt unverändert bei 0.4.33.
+
+# Änderungsprotokoll
+
+## Version 0.4.33
+- Hauptfenster um ca. 1,5 cm verbreitert; Fensterhöhe und übrige Oberfläche unverändert.
+
 # Changelog
 
 ## 0.4.33 – Dashboard-Symbole farblich überarbeitet
 - Die vier Dashboard-Kategorien haben jetzt eindeutige Vektorsymbole: Schild für Virenschutz, Ebenen für Systemschutz, WLAN für Netzwerk und Monitor mit Pulslinie für Systemstatus.
 - Eigene Akzentfarben: Grün, Orange, Blau und Türkis. Das übrige Dashboard- und Scanlayout bleibt unverändert.
+- Die Größenlimit-Kennzahl in der unteren Scan-Leiste aus 0.4.33 bleibt enthalten.
+
+## 0.4.33 – Größenlimit in der Dashboard-Leiste
 - Die untere Scan-Kennzahlenleiste zeigt jetzt zusätzlich „Größenlimit“ mit der Anzahl der Dateien, die wegen ClamAVs Dateigrößenlimit nicht vollständig geprüft werden konnten.
 - Der Wert wird direkt aus demselben Live-Scanmonitor übernommen wie im Scanfenster; dadurch stimmen beide Anzeigen überein.
 - Die übrigen Scan-Kennzahlen und das bestehende Design bleiben unverändert.
@@ -668,3 +689,9 @@
 
 ### Fensterbreite (Version 0.4.33)
 - Hauptfenster gegenüber dem vorherigen Stand um weitere ca. 1 cm verbreitert (insgesamt ca. 2,5 cm gegenüber der ursprünglichen Breite). Versionsnummer bleibt unverändert bei 0.4.33.
+
+
+### 0.4.34 – Navigationsanpassung
+- Linke Navigationsschrift um eine Punktgröße auf 10 pt erhöht.
+- Menüpunkt „Reparatur & Wiederherstellung“ in „Wiederherstellung“ umbenannt.
+- Versionsnummer bleibt unverändert bei 0.4.34.
