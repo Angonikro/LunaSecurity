@@ -1,3 +1,10 @@
+## 0.4.35 – VirusTotal-Dialoge übersichtlicher
+
+- Die Abfrage vor dem Upload einer unbekannten Datei zeigt Dateiname, Größe, SHA-256 und Speicherort getrennt an.
+- Das Prüfergebnis und der Upload-Status werden in übersichtlichen Abschnitten dargestellt.
+- Lange Dateipfade und Hashwerte werden innerhalb der Dialoge umgebrochen.
+- Die ausdrückliche Zustimmung vor jedem Datei-Upload bleibt erhalten.
+
 ## 0.4.34 – Navigationsschrift korrigiert -  Vollbild-Layout und Navigation
 - Linke Navigation: Schriftgewicht direkt an jedem QListWidget-Eintrag auf ExtraBold (800) gesetzt, da die bisherige QSS-Angabe auf dem Zielsystem nicht sichtbar kräftiger gerendert wurde.
 - Schriftgröße bleibt bei 9 pt; Symbole und Abstände bleiben unverändert.
@@ -695,3 +702,14 @@
 - Linke Navigationsschrift um eine Punktgröße auf 10 pt erhöht.
 - Menüpunkt „Reparatur & Wiederherstellung“ in „Wiederherstellung“ umbenannt.
 - Versionsnummer bleibt unverändert bei 0.4.34.
+\n\n## 0.4.35\n- Dashboard-Karte im markierten Bereich von Firewall auf VirusTotal umgestellt.\n- Firewall-Bericht-Schaltfläche dort entfernt; eigener VirusTotal-Titel, Erklärung und Datei-Prüfaktion ergänzt.\n- Die VirusTotal-Prüfung nutzt weiterhin SHA-256; unbekannte Dateien werden nur nach ausdrücklicher Bestätigung hochgeladen.\n
+
+## 0.4.35 – Korrekturpaket
+- Startfehler behoben: Versionsdatei enthält wieder einen echten Zeilenumbruch statt der wörtlichen Zeichenfolge `\\n`.
+
+
+## 0.4.35 – VirusTotal-Ergebnisfenster
+- Ergebnisdetails werden mit echten Zeilenumbrüchen statt sichtbaren \\n-Sequenzen dargestellt.
+- Erkennungen, Anbieter, Dateipfad, SHA-256 und Upload-Status sind klar voneinander getrennt.
+- Ergebnisfenster erhält mehr Breite, damit lange Angaben besser lesbar umbrechen.
+- Versionsnummer bleibt unverändert bei 0.4.35.

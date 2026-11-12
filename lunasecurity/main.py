@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, shutil, subprocess, sys, threading, time, json, wave, tempfile, struct, math, signal, re, hashlib, urllib.request, urllib.error, urllib.parse
+import os, shutil, subprocess, sys, threading, time, json, wave, tempfile, struct, math, signal, re, hashlib, urllib.request, urllib.error, urllib.parse, html
 from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot, QThread, QSettings, QTimer, QTranslator, QLocale, Qt, QEvent, QPoint, QMarginsF, QRectF
 from PySide6.QtGui import QAction, QIcon, QTextDocument, QTextOption, QFont, QPainter, QLinearGradient, QRadialGradient, QColor, QPolygon, QPen, QBrush, QTextCursor, QPainterPath
@@ -1622,11 +1622,11 @@ class MainWindow(QMainWindow):
         self.system_info_label.setObjectName("muted"); info.addWidget(self.system_info_label); right_col.addWidget(info_card)
 
         fw_card = QFrame(); fw_card.setObjectName("featureCard"); fw = QVBoxLayout(fw_card)
-        fw_title = QLabel("▦  Firewall"); fw_title.setStyleSheet("font-size:13pt;font-weight:700"); fw.addWidget(fw_title)
-        fw_hint = QLabel("Ports und Firewall-Regeln überwachen."); fw_hint.setObjectName("muted"); fw.addWidget(fw_hint)
-        fw_btn = QPushButton("Firewall-Bericht"); fw_btn.clicked.connect(lambda: self.side_nav.setCurrentRow(6)); fw.addWidget(fw_btn)
-        self.virustotal_button = QPushButton("🌐  VirusTotal-Check")
-        self.virustotal_button.setToolTip("SHA-256 einer ausgewählten Datei bei VirusTotal nachschlagen. Die Datei wird nicht hochgeladen.")
+        fw_title = QLabel("▦  VirusTotal"); fw_title.setStyleSheet("font-size:13pt;font-weight:700"); fw.addWidget(fw_title)
+        fw_hint = QLabel("Dateien sicher per SHA-256 bei VirusTotal überprüfen. Unbekannte Dateien können hochgeladen werden.")
+        fw_hint.setObjectName("muted"); fw_hint.setWordWrap(True); fw.addWidget(fw_hint)
+        self.virustotal_button = QPushButton("🌐  Datei bei VirusTotal prüfen")
+        self.virustotal_button.setToolTip("Prüft den SHA-256-Hash einer ausgewählten Datei. Ein Upload erfolgt nur nach ausdrücklicher Zustimmung.")
         self.virustotal_button.clicked.connect(self.start_virustotal_check)
         fw.addWidget(self.virustotal_button)
         right_col.addWidget(fw_card, 1); columns.addWidget(right, 3)
@@ -2711,27 +2711,46 @@ class MainWindow(QMainWindow):
         self.virustotal_button.setEnabled(True)
         self.virustotal_button.setText("🌐  VirusTotal-Check")
         status = result.get("status")
+
+        def esc(value):
+            return html.escape(str(value if value is not None else ""))
+
+        def report_row(label, value):
+            return (
+                '<tr><td style="padding:5px 12px 5px 0;color:#aebbd5;white-space:nowrap;vertical-align:top">'
+                f'<b>{esc(label)}</b></td><td style="padding:5px 0;vertical-align:top;word-break:break-all">{esc(value)}</td></tr>'
+            )
+
         if status == "unknown":
             path = result.get("path", "")
             size = int(result.get("size", 0))
             size_text = f"{size / (1024 * 1024):.2f} MB"
-            answer = QMessageBox.question(
-                self, "VirusTotal – Datei unbekannt",
-                "VirusTotal kennt diese Datei noch nicht.\n\n"
-                f"Datei: {os.path.basename(path)}\nGröße: {size_text}\n"
-                f"SHA-256: {result.get('hash')}\n\n"
-                "Möchtest du die Datei jetzt zur Analyse an VirusTotal hochladen?\n\n"
-                "WICHTIG: Die Datei wird an VirusTotal übertragen und kann in den "
-                "VirusTotal-Datensatz aufgenommen und für andere Nutzer zugänglich werden. "
-                "Keine vertraulichen oder persönlichen Dateien hochladen.",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
+            details = (
+                '<table width="100%" cellspacing="0" cellpadding="0">'
+                + report_row("Datei", os.path.basename(path))
+                + report_row("Größe", size_text)
+                + report_row("SHA-256", result.get("hash", ""))
+                + report_row("Speicherort", path)
+                + '</table><p style="margin-top:12px"><b>Hinweis zum Upload</b><br>'
+                'Die Datei wird an VirusTotal übertragen und kann in den VirusTotal-Datensatz '
+                'aufgenommen und für andere Nutzer zugänglich werden. Lade keine vertraulichen '
+                'oder persönlichen Dateien hoch.</p>'
             )
-            if answer == QMessageBox.StandardButton.Yes:
+            box = QMessageBox(self)
+            box.setWindowTitle("VirusTotal – Datei unbekannt")
+            box.setIcon(QMessageBox.Icon.Question)
+            box.setText("VirusTotal kennt diese Datei noch nicht.")
+            box.setInformativeText(details)
+            box.setTextFormat(Qt.TextFormat.RichText)
+            yes_button = box.addButton("Datei hochladen", QMessageBox.ButtonRole.YesRole)
+            box.addButton("Nicht hochladen", QMessageBox.ButtonRole.NoRole)
+            box.setDefaultButton(box.buttons()[-1])
+            box.exec()
+            if box.clickedButton() is yes_button:
                 if size > 32 * 1024 * 1024:
                     QMessageBox.warning(
                         self, "VirusTotal – Datei zu groß",
-                        "Derzeit unterstützt der direkte Upload Dateien bis 32 MB. "
+                        "Der direkte Upload unterstützt Dateien bis 32 MB.\n\n"
                         "Diese Datei ist größer und wurde nicht übertragen."
                     )
                 else:
@@ -2740,49 +2759,65 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.information(
                     self, "VirusTotal – Upload übersprungen",
-                    "Die Datei blieb unverändert auf deinem Rechner. Es wurde nur der SHA-256-Hash abgefragt."
+                    "Die Datei blieb unverändert auf deinem Rechner.\n\n"
+                    "Es wurde nur der SHA-256-Hash abgefragt."
                 )
         elif status == "pending":
-            QMessageBox.information(
-                self, "VirusTotal – Analyse läuft noch",
-                "Die Datei wurde hochgeladen. VirusTotal hat die Analyse noch nicht abgeschlossen.\n\n"
-                f"SHA-256: {result.get('hash')}\nAnalyse-ID: {result.get('analysis_id')}\n\n"
-                "Du kannst den Bericht später auf VirusTotal öffnen."
+            details = (
+                '<table width="100%" cellspacing="0" cellpadding="0">'
+                + report_row("Upload", "Erfolgreich übertragen")
+                + report_row("SHA-256", result.get("hash", ""))
+                + report_row("Analyse-ID", result.get("analysis_id", ""))
+                + '</table><p>VirusTotal verarbeitet die Datei noch. Du kannst den Bericht später öffnen.</p>'
             )
+            box = QMessageBox(self)
+            box.setWindowTitle("VirusTotal – Analyse läuft noch")
+            box.setIcon(QMessageBox.Icon.Information)
+            box.setText("Die Datei wurde hochgeladen.")
+            box.setInformativeText(details)
+            box.setTextFormat(Qt.TextFormat.RichText)
+            open_report = box.addButton("Bericht auf VirusTotal öffnen", QMessageBox.ButtonRole.ActionRole)
+            box.addButton("Schließen", QMessageBox.ButtonRole.AcceptRole)
+            box.exec()
+            if box.clickedButton() is open_report:
+                import webbrowser
+                webbrowser.open(result.get("analysis_url", f"https://www.virustotal.com/gui/file/{result.get('hash', '')}"))
         elif status == "error":
             QMessageBox.warning(self, "VirusTotal – Fehler", result.get("message", "Unbekannter Fehler"))
         else:
-            malicious = result.get("malicious", 0)
-            suspicious = result.get("suspicious", 0)
+            malicious = int(result.get("malicious", 0) or 0)
+            suspicious = int(result.get("suspicious", 0) or 0)
             verdict = "Keine Erkennung gemeldet." if not malicious and not suspicious else "Achtung: VirusTotal meldet mögliche Erkennungen."
+            detections = result.get("detections", [])
+            details = '<table width="100%" cellspacing="0" cellpadding="0">'
+            details += report_row("Erkennungen", malicious)
+            details += report_row("Verdächtig", suspicious)
+            details += report_row("Nicht erkannt", result.get("undetected", 0))
+            details += report_row("Unauffällig", result.get("harmless", 0))
+            details += report_row("Ausgewertete Anbieter", result.get("total", 0))
+            details += report_row("Datei", result.get("path", ""))
+            details += report_row("SHA-256", result.get("hash", ""))
+            details += report_row("Upload-Status", "Datei wurde hochgeladen." if result.get("uploaded") else "Nur der Hash wurde abgefragt; die Datei wurde nicht hochgeladen.")
+            details += '</table>'
+            if detections:
+                details += '<p><b>Gemeldete Anbieter</b></p><ul style="margin-top:3px">'
+                for item in detections:
+                    details += (
+                        f'<li>{esc(item.get("vendor", "Unbekannt"))}: '
+                        f'{esc(item.get("result", "Keine Bezeichnung"))} '
+                        f'({esc(item.get("category", ""))})</li>'
+                    )
+                details += '</ul>'
+            details += '<p style="color:#aebbd5">VirusTotal kann abgefragte Indikatoren und hochgeladene Dateien in seinen Datensatz aufnehmen.</p>'
             box = QMessageBox(self)
             box.setWindowTitle("VirusTotal – Prüfergebnis")
             box.setIcon(QMessageBox.Icon.Warning if malicious or suspicious else QMessageBox.Icon.Information)
             box.setText(verdict)
-            detections = result.get("detections", [])
-            detail_lines = [
-                f"Erkennungen: {malicious}",
-                f"Verdächtig: {suspicious}",
-                f"Nicht erkannt: {result.get('undetected', 0)}",
-                f"Unauffällig: {result.get('harmless', 0)}",
-                f"Ausgewertete Anbieter: {result.get('total', 0)}",
-            ]
-            if detections:
-                detail_lines.append("\\nGemeldete Anbieter:")
-                for item in detections:
-                    detail_lines.append(
-                        f"• {item.get('vendor')}: {item.get('result')} ({item.get('category')})"
-                    )
-            detail_lines.extend([
-                f"\\nDatei: {result.get('path', '')}",
-                f"SHA-256: {result.get('hash')}",
-                "",
-                "Datei wurde hochgeladen." if result.get("uploaded") else "Es wurde nur der Hash abgefragt; die Datei wurde nicht hochgeladen.",
-                "VirusTotal kann abgefragte Indikatoren und hochgeladene Dateien in seinen Datensatz aufnehmen."
-            ])
-            box.setInformativeText("\\n".join(detail_lines))
+            box.setInformativeText(details)
+            box.setTextFormat(Qt.TextFormat.RichText)
+            box.setMinimumWidth(560)
             open_report = box.addButton("Bericht auf VirusTotal öffnen", QMessageBox.ButtonRole.ActionRole)
-            box.addButton(QMessageBox.StandardButton.Close)
+            box.addButton("Schließen", QMessageBox.ButtonRole.AcceptRole)
             box.exec()
             if box.clickedButton() is open_report:
                 import webbrowser
