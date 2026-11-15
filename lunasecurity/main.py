@@ -27,7 +27,7 @@ def _german_file_dialog(parent, title, start_dir, directory_mode=False, file_fil
     dialog.setLabelText(QFileDialog.DialogLabel.FileType, labels[2])
     dialog.setLabelText(QFileDialog.DialogLabel.Accept, labels[3])
     dialog.setLabelText(QFileDialog.DialogLabel.Reject, labels[4])
-    dialog.setNameFilter("Verzeichnisse (*)" if directory_mode else file_filter)
+    dialog.setNameFilter(("Directories (*)" if APP_LANGUAGE == "en" else "Verzeichnisse (*)") if directory_mode else ("All files (*)" if APP_LANGUAGE == "en" and file_filter == "Alle Dateien (*)" else file_filter))
 
     def translate_widgets():
         if APP_LANGUAGE == "en":
@@ -141,10 +141,17 @@ class EnglishMessageBoxFix(QObject):
             text = watched.text()
             info = watched.informativeText()
             details = watched.detailedText()
-            if title: watched.setWindowTitle(mapping.get(title, title))
-            if text: watched.setText(mapping.get(text, text))
-            if info: watched.setInformativeText(mapping.get(info, info))
-            if details: watched.setDetailedText(mapping.get(details, details))
+            def translate_embedded(value):
+                result = mapping.get(value, value)
+                if result == value:
+                    for source, target in mapping.items():
+                        if source and source in result:
+                            result = result.replace(source, target)
+                return result
+            if title: watched.setWindowTitle(translate_embedded(title))
+            if text: watched.setText(translate_embedded(text))
+            if info: watched.setInformativeText(translate_embedded(info))
+            if details: watched.setDetailedText(translate_embedded(details))
         return super().eventFilter(watched, event)
 
 class GermanDialogButtonFix(QObject):
@@ -212,6 +219,74 @@ EN_TRANSLATIONS.update({'Virenschutz': 'Virus protection', 'ClamAV-Scanner und E
 EN_TRANSLATIONS.update({'Was möchtest du scannen?': 'What would you like to scan?', 'Datei zum Scannen auswählen': 'Select file to scan', 'Ordner zum Scannen auswählen': 'Select folder to scan', 'Scanbereich:': 'Scan area:', 'Root-Rechte werden nur für geschützte Systembereiche benötigt.': 'Administrator privileges are only required for protected system areas.', 'Geprüfte Dateien': 'Files checked', 'Bedrohungen': 'Threats', 'Nicht lesbar': 'Unreadable', 'Übersprungen': 'Skipped', 'Aktuelle Datei:': 'Current file:', 'Verstrichene Zeit:': 'Elapsed time:', 'Scan läuft …': 'Scan running …', 'Abbruch läuft …': 'Cancelling …', 'Der Scan wird abgebrochen …': 'Cancelling the scan …', 'Abgebrochen': 'Cancelled', 'Abgeschlossen': 'Completed', 'Scan abgebrochen. Das bisherige Ergebnis steht im Scan-Protokoll.': 'Scan cancelled. The results so far are available in the scan log.', 'Scan abgeschlossen. Das vollständige Ergebnis steht im Scan-Protokoll.': 'Scan completed. The full result is available in the scan log.', 'fail2ban-Status prüfen': 'Check fail2ban status', 'fail2ban-Verbindung:': 'fail2ban connection:', 'Gesamtstatus:': 'Overall status:', 'SSH-Jail:': 'SSH jail:'})
 EN_TRANSLATIONS.update({'Darstellung & Sprache': 'Appearance & language', 'Sprache / Language': 'Language', 'Design / Theme': 'Theme', 'Dunkel – Graphit': 'Dark – Graphite', 'Hell – Luna': 'Light – Luna', 'Allgemeine Programmoptionen': 'General application options', 'Zusätzliche Systemhärtungsprüfung und Überwachung. Diese Funktionen lesen den Systemstatus und ändern keine Sicherheitsregeln.': 'Additional system-hardening checks and monitoring. These functions read system status and do not change security rules.', 'Erkannte Dateien auswählen, um sie zu isolieren oder zu löschen.': 'Select detected files to quarantine or delete.', 'Ausgewählten Fund in Quarantäne': 'Quarantine selected detection', 'Gefundene Datei löschen': 'Delete detected file', 'Ereignisprotokoll leeren': 'Clear event log', 'Aktualisieren': 'Refresh', 'Endgültig löschen': 'Delete permanently', 'Prüft installierte Paketdateien. Bei Abweichungen kannst du das betroffene Paket über APT neu installieren.': 'Checks installed package files. If differences are found, you can reinstall the affected package through APT.', 'Netzwerk- und Firewall-Sicherheitscheck (mit Admin-Abfrage)': 'Network and firewall security check (administrator authentication required)', 'Datei/Ordner für YARA auswählen': 'Select file/folder for YARA', 'Quarantäne anzeigen': 'Show quarantine', 'Hier findest du alle aktivierbaren Optionen der Hauptoberfläche.': 'Here you can find all configurable options for the main interface.', 'Aktiviert ClamAVs Erkennung potenziell unerwünschter Anwendungen. Kann zusätzliche Treffer liefern.': 'Enables ClamAV detection of potentially unwanted applications. May produce additional detections.', 'Aktiviert oder deaktiviert ClamAVs heuristische Erkennung.': 'Enables or disables ClamAV heuristic detection.', 'Bezieht bei Ordnerscans auch Einträge ein, deren Name mit einem Punkt beginnt.': 'Includes entries whose names begin with a dot when scanning folders.', 'Erhöht die ClamAV-Grenzen für Dateigröße und entpackte Scanmenge auf bis zu 2 GB. Das kann deutlich länger dauern.': 'Raises ClamAV file-size and extracted-scan limits to 2 GB. This can take considerably longer.', 'Wenn deaktiviert, werden bei einem Ordnerscan nur Dateien direkt im ausgewählten Ordner geprüft.': 'When disabled, only files directly inside the selected folder are scanned.', 'LunaSecurity führt Prüfungen nachvollziehbar aus. Rootkit- und Integritätsprüfungen können Administratorrechte benötigen. Funde werden nicht automatisch gelöscht.': 'LunaSecurity performs traceable checks. Rootkit and integrity checks may require administrator privileges. Detections are not deleted automatically.', 'Beim Schließen im Infobereich weiterlaufen': 'Keep running in the system tray when closed', 'Beim Start direkt im Infobereich starten': 'Start directly in the system tray', 'LunaSecurity automatisch bei der Anmeldung starten': 'Start LunaSecurity automatically at login', 'Root-Rechte werden nur für geschützte Systembereiche benötigt.': 'Administrator privileges are only required for protected system areas.', 'Bericht kopieren': 'Copy report', 'PDF-Bericht konnte nicht gespeichert werden': 'Could not save PDF report', 'Prüfung wird vorbereitet …': 'Preparing check …', 'Aktuelle Datei: wird vorbereitet …': 'Current file: preparing …', 'Scan-Ziel auswählen': 'Select scan target', 'Port gezielt sperren': 'Block a specific port'})
 EN_TRANSLATIONS.update({'0\nBedrohungen': '0\nThreats', '0\nGeprüfte Dateien': '0\nFiles checked', '0\nNicht lesbar': '0\nUnreadable', '0\nÜbersprungen': '0\nSkipped', 'Debian-Paketintegrität und Reparatur': 'Debian package integrity and repair', 'Einträge dieses Benutzerkontos anzeigen, reversibel deaktivieren oder zurückholen.': 'View entries for this user account, disable them reversibly, or restore them.', 'Ergebnisse von rkhunter und chkrootkit. Warnungen können Fehlalarme sein und müssen einzeln bewertet werden.': 'Results from rkhunter and chkrootkit. Warnings may be false positives and must be assessed individually.', 'Kein Scan-Ziel ausgewählt': 'No scan target selected', 'LunaSecurity – ClamAV-Systemprüfung': 'LunaSecurity – ClamAV system scan', 'LunaSecurity – Linux Security Suite': 'LunaSecurity – Linux Security Suite', 'LunaSecurity – Rootkit-Prüfbericht': 'LunaSecurity – rootkit report', 'Lynis-Sicherheitsprüfung starten': 'Run Lynis security check', 'PipeWire-, PulseAudio- und ALSA-Ausgabe werden automatisch erkannt. Geräteauswahl wird bei unterstützten Backends angewendet.': 'PipeWire, PulseAudio and ALSA outputs are detected automatically. Device selection is applied for supported backends.', 'Prüfergebnisse und Reparaturprotokoll': 'Check results and repair log', 'Reparaturen nur nach deiner Bestätigung. Vor Änderungen werden Sicherungen angelegt. Systemdateien und Rootkit-Funde werden nicht blind verändert.': 'Repairs are performed only after your confirmation. Backups are created before changes. System files and rootkit detections are never modified blindly.', 'Reparaturhilfe öffnen': 'Open repair help', 'Scan-Ergebnis kopieren': 'Copy scan result', 'Sicherheitsbericht als HTML speichern': 'Save security report as HTML', 'Sicherheitsbericht als PDF speichern': 'Save security report as PDF', 'Vorherige Sicherungen auswählen und zurückspielen. Bereits vorhandene Dateien werden nicht überschrieben.': 'Select and restore previous backups. Existing files will not be overwritten.', 'Wiederherstellung': 'Recovery', 'fail2ban-Status prüfen': 'Check fail2ban status'})
+EN_TRANSLATIONS.update({
+    "System status": "System status",
+    "Prüft wichtige Systembereiche auf Bedrohungen.": "Checks important system areas for threats.",
+    "Echtzeitschutz": "Real-time protection",
+    "Malware-, Viren- und Trojaner-Erkennung": "Malware, virus and trojan detection",
+    "Wurm- und Skript-Erkennung": "Worm and script detection",
+    "Echtzeitschutz: Aktiv": "Real-time protection: Active",
+    "Echtzeitschutz: Aus": "Real-time protection: Off",
+    "Überwacht dein System in Echtzeit (ClamAV).": "Monitors your system in real time (ClamAV).",
+    "Architektur": "Architecture",
+    "Dateien sicher per SHA-256 bei VirusTotal überprüfen. Unbekannte Dateien können hochgeladen werden.": "Securely check files with VirusTotal using SHA-256. Unknown files can be uploaded.",
+    "Dateien sicher per SHA-256 bei VirusTotal überprüfen.": "Securely check files with VirusTotal using SHA-256.",
+    "Unbekannte Dateien können hochgeladen werden.": "Unknown files can be uploaded.",
+    "🌐  Datei bei VirusTotal prüfen": "🌐  Scan file with VirusTotal",
+    "🌐  VirusTotal-Check": "🌐  VirusTotal check",
+    "VirusTotal lädt hoch …": "VirusTotal uploading …",
+    "VirusTotal prüft …": "VirusTotal checking …",
+    "Bitte trage zuerst unter Einstellungen → VirusTotal – API deinen API-Schlüssel ein.": "Please enter your API key under Settings → VirusTotal – API first.",
+    "Datei für VirusTotal auswählen": "Select file for VirusTotal",
+    "VirusTotal – Datei unbekannt": "VirusTotal – Unknown file",
+    "VirusTotal kennt diese Datei noch nicht.": "VirusTotal has not seen this file before.",
+    "Hinweis zum Upload": "Upload notice",
+    "Die Datei wird an VirusTotal übertragen und kann in den VirusTotal-Datensatz aufgenommen und für andere Nutzer zugänglich werden. Lade keine vertraulichen oder persönlichen Dateien hoch.": "The file will be uploaded to VirusTotal and may be added to its dataset and made available to other users. Do not upload confidential or personal files.",
+    "Datei hochladen": "Upload file",
+    "Nicht hochladen": "Do not upload",
+    "VirusTotal – Datei zu groß": "VirusTotal – File too large",
+    "Der direkte Upload unterstützt Dateien bis 32 MB.\n\nDiese Datei ist größer und wurde nicht übertragen.": "Direct uploads support files up to 32 MB.\n\nThis file is larger and was not transferred.",
+    "VirusTotal – Upload übersprungen": "VirusTotal – Upload skipped",
+    "Die Datei blieb unverändert auf deinem Rechner.\n\nEs wurde nur der SHA-256-Hash abgefragt.": "The file was left unchanged on your computer.\n\nOnly the SHA-256 hash was queried.",
+    "VirusTotal – Analyse läuft noch": "VirusTotal – Analysis still running",
+    "Die Datei wurde hochgeladen.": "The file has been uploaded.",
+    "Bericht auf VirusTotal öffnen": "Open report on VirusTotal",
+    "VirusTotal – Fehler": "VirusTotal – Error",
+    "Unbekannter Fehler": "Unknown error",
+    "Keine Erkennung gemeldet.": "No detections reported.",
+    "Achtung: VirusTotal meldet mögliche Erkennungen.": "Warning: VirusTotal reports possible detections.",
+    "Erkennungen": "Detections",
+    "Verdächtig": "Suspicious",
+    "Nicht erkannt": "Undetected",
+    "Unauffällig": "Harmless",
+    "Ausgewertete Anbieter": "Engines",
+    "Datei": "File",
+    "Größe": "Size",
+    "Speicherort": "File location",
+    "SHA-256": "SHA-256",
+    "Upload": "Upload",
+    "Erfolgreich übertragen": "Uploaded successfully",
+    "Analyse-ID": "Analysis ID",
+    "VirusTotal verarbeitet die Datei noch. Du kannst den Bericht später öffnen.": "VirusTotal is still processing the file. You can open the report later.",
+    "Upload-Status": "Upload status",
+    "Datei wurde hochgeladen.": "File was uploaded.",
+    "Nur der Hash wurde abgefragt; die Datei wurde nicht hochgeladen.": "Only the hash was queried; the file was not uploaded.",
+    "Gemeldete Anbieter": "Reporting engines",
+    "Unbekannt": "Unknown",
+    "Keine Bezeichnung": "No label",
+    "VirusTotal kann abgefragte Indikatoren und hochgeladene Dateien in seinen Datensatz aufnehmen.": "VirusTotal may add queried indicators and uploaded files to its dataset.",
+    "VirusTotal – Prüfergebnis": "VirusTotal – Scan result",
+    "Bedrohungen": "Threats",
+    "Geprüfte Dateien": "Files checked",
+    "Größenlimit": "Size limit",
+    "Nicht lesbare": "Unreadable",
+    "Übersprungen": "Skipped",
+    "Dauer": "Duration",
+    "Prüft wichtige Systembereiche auf Bedrohungen.": "Checks important system areas for threats.",
+    "GTK-System-Tray gestartet (Gtk.StatusIcon, wie in LunaKalender 1.4.0).": "GTK system tray started (Gtk.StatusIcon, as in LunaKalender 1.4.0).",
+    "LunaSecurity wurde im System-Tray gestartet.": "LunaSecurity was started in the system tray.",
+})
+
 EN_TRANSLATIONS.update({'Es läuft bereits eine Sicherheitsaufgabe.': 'A security task is already running.', 'Es läuft bereits eine Sicherheitsprüfung.': 'A security check is already running.', 'Bitte zuerst eine Datei auswählen.': 'Please select a file first.', 'Bitte zuerst einen Fund mit erkannter Dateiangabe auswählen.': 'Please select a detection with an identified file path first.', 'pkexec ist nicht installiert.': 'pkexec is not installed.', 'Keine gesicherten Autostart-Einträge vorhanden.': 'No backed-up autostart entries found.', 'Keine Paketsicherungen gefunden.': 'No package backups found.', 'Das Reparatur-Hilfsprogramm fehlt.': 'The repair helper is missing.', 'Das Wiederherstellungsprogramm fehlt.': 'The recovery helper is missing.', 'Der PDF-Drucker konnte nicht initialisiert werden.': 'The PDF printer could not be initialized.', 'PDF-Bericht konnte nicht gespeichert werden': 'Could not save PDF report', 'Quarantäne fehlgeschlagen': 'Quarantine failed', 'Löschen fehlgeschlagen': 'Delete failed', 'Wiederherstellung fehlgeschlagen': 'Recovery failed', 'Reparatur fehlgeschlagen': 'Repair failed', 'Dateiauswahl abgebrochen; kein Scan gestartet.': 'File selection cancelled; scan not started.', 'Ordnerauswahl abgebrochen; kein Scan gestartet.': 'Folder selection cancelled; scan not started.', 'Die Signaturen konnten nicht aktualisiert werden. Prüfe die Berechtigungen oder ob bereits der freshclam-Dienst läuft.': 'The signatures could not be updated. Check permissions or whether the freshclam service is already running.', 'Der Dienst clamav-freshclam läuft bereits. Er aktualisiert die Signaturen selbst; ein paralleler manueller Aufruf wurde vermieden.': 'The clamav-freshclam service is already running and updates signatures itself; a parallel manual update was avoided.', 'Die neue Signaturversion wurde übernommen.': 'The new signature version has been installed.', 'Die Signaturversion ist unverändert (Datenbank war möglicherweise bereits aktuell).': 'The signature version is unchanged (the database may already have been up to date).', 'Signaturaktualisierung abgeschlossen.': 'Signature update completed.', 'Signaturaktualisierung im Hintergrund beendet.': 'Background signature update finished.', 'Status geprüft.': 'Status checked.', 'Echtzeitschutz aktiviert.': 'Real-time protection enabled.', 'Echtzeitschutz deaktiviert.': 'Real-time protection disabled.', 'Prüfung abgeschlossen': 'Check completed', 'Prüfung abgebrochen': 'Check cancelled', 'Scan abgeschlossen. Das vollständige Ergebnis steht im Scan-Protokoll.': 'Scan completed. The full result is available in the scan log.', 'Scan abgebrochen. Das bisherige Ergebnis steht im Scan-Protokoll.': 'Scan cancelled. The results so far are available in the scan log.', 'Keine erreichbaren Systemverzeichnisse für den Scan gefunden.': 'No accessible system directories found for scanning.', 'Keines der ausgewählten Systemverzeichnisse ist vorhanden.': 'None of the selected system directories exists.'})
 
 APP_DIR = Path.home() / ".config" / "LunaSecurity"
@@ -261,6 +336,57 @@ def signature_database_versions():
             entries.append(f"{label}: nicht lesbar")
     return " · ".join(entries) if entries else "Keine ClamAV-Signaturdatenbank gefunden"
 
+EN_TRANSLATIONS.update({
+    "✓  Echtzeitschutz\n✓  Malware-, Viren- und Trojaner-Erkennung\n✓  Wurm- und Skript-Erkennung": "✓  Real-time protection\n✓  Malware, virus and trojan detection\n✓  Worm and script detection",
+    "Alle Dateien (*)": "All files (*)",
+    "Echtzeitschutz: Status wird geprüft …": "Real-time protection: checking status …",
+    "✓  Bedrohungen\n0": "✓  Threats\n0",
+    "▱  Geprüfte Dateien\n0": "▱  Files checked\n0",
+    "◉  Größenlimit\n0": "◉  Size limit\n0",
+    "⊘  Nicht lesbare\n0": "⊘  Unreadable\n0",
+    "↪  Übersprungen\n0": "↪  Skipped\n0",
+    "◷  Dauer\n00:00:00": "◷  Duration\n00:00:00",
+    "◉  Virensignaturen": "◉  Virus signatures",
+    "ⓘ  System-Informationen": "ⓘ  System information",
+    "Überwacht dein System in Echtzeit (ClamAV).": "Monitors your system in real time (ClamAV).",
+    "Prüft den SHA-256-Hash einer ausgewählten Datei. Ein Upload erfolgt nur nach ausdrücklicher Zustimmung.": "Checks the SHA-256 hash of a selected file. Uploads are only performed with your explicit consent.",
+    "Aktiv": "Active",
+})
+
+
+# Ergänzungen für Beschriftungen, die direkt im Dashboard erzeugt werden.
+EN_TRANSLATIONS.update({
+    "Systemstatus": "System status",
+    "Überwachung und Dienste": "Monitoring and services",
+    "Rootkit-, AIDE- und Integritätsprüfung": "Rootkit, AIDE and integrity checks",
+    "⟳  Jetzt aktualisieren": "⟳  Update now",
+    "ⓘ  System-Informationen": "ⓘ  System information",
+    "Architektur": "Architecture",
+})
+
+
+EN_TRANSLATIONS.update({
+    "SICHERHEITSSTATUS-DASHBOARD": "SECURITY STATUS DASHBOARD",
+    "Hinweis: Ein aktiver Dienst ist kein Nachweis für ein sauberes System. Starte bei Bedarf die jeweiligen Prüfungen.": "Note: An active service does not prove that a system is clean. Run the relevant checks when needed.",
+    "Ursprünglicher Pfad": "Original path", "Quarantäne seit": "Quarantined since", "Interne Ablage": "Internal storage",
+    "Netzwerkprüfung": "Network check", "Systemintegrität": "System integrity",
+    "Lynis-Sicherheitsprüfung": "Lynis security check", "fail2ban-Überwachung": "fail2ban monitoring",
+    "Rootkit-Prüfung": "Rootkit check", "System-Audit": "System audit",
+    "Prüfung vom Benutzer abgebrochen.": "Check cancelled by user.",
+    "Zeitüberschreitung nach": "Timed out after", " Sekunden. Prüfung beendet.": " seconds. Check finished.",
+    "Prüfung fehlgeschlagen:": "Check failed:", "Exit-Code": "Exit code",
+    "NICHT VOLLSTÄNDIG GEPRÜFT": "NOT FULLY CHECKED", "KEINE AKTUALISIERUNG": "NO UPDATE",
+    "Systemwerkzeuge": "System tools", "Sprache:": "Language:", "Testkategorie:": "Test category:",
+    "Testgruppe:": "Test group:", "Auditor:": "Auditor:", "Logdatei:": "Log file:",
+    "Berichtsdatei:": "Report file:", "Berichtsversion:": "Report version:",
+    "Plugin-Verzeichnis:": "Plugin directory:",
+})
+
+EN_TRANSLATIONS.update({
+    "LunaSecurity – Keine offenen Warnungen": "LunaSecurity – No open warnings",
+    "LunaSecurity – Sicherheitswarnung vorhanden": "LunaSecurity – Security warning present",
+    "LunaSecurity – Kritische Bedrohung erkannt": "LunaSecurity – Critical threat detected",
+})
 class Bridge(QObject):
     show_window = Signal()
     quit_app = Signal()
@@ -427,8 +553,11 @@ class ModuleWorker(QThread):
         if self._cancel_event.is_set():
             return "Prüfung vom Benutzer abgebrochen."
         try:
+            command_env = os.environ.copy()
+            if APP_LANGUAGE == "en":
+                command_env.update({"LANG": "C", "LC_ALL": "C", "LC_MESSAGES": "C"})
             process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                       text=True, bufsize=1, start_new_session=True)
+                                       text=True, bufsize=1, start_new_session=True, env=command_env)
             self.set_process(process)
             lines = []
             started = time.monotonic()
@@ -1032,6 +1161,12 @@ def _ui_text(value):
     # Häufige dynamische Meldungen und zusammengesetzte Statuszeilen.
     replacements = (
         ("fail2ban-Überwachung", "fail2ban monitoring"),
+        ("Lynis-Sicherheitsprüfung", "Lynis security check"),
+        ("Systemintegrität", "System integrity"),
+        ("Rootkit-Prüfung", "Rootkit check"),
+        ("Netzwerkprüfung", "Network check"),
+        ("System-Audit", "System audit"),
+        ("LunaSecurity-Echtzeitschutz", "LunaSecurity real-time protection"),
         (" läuft", " running"),
         (" gestartet.", " started."),
         (" beendet.", " finished."),
@@ -1399,7 +1534,7 @@ class ClamScanMonitor(QDialog):
             summary = re.search(r"Scanned files:\s*(\d+)", str(result), re.IGNORECASE)
             if summary:
                 self.checked = int(summary.group(1))
-                self.checked_label.setText(f"{self.checked:,}\nGeprüfte Dateien".replace(",", "."))
+                self.checked_label.setText(f"{self.checked:,}\n" + _ui_text("Geprüfte Dateien"))
         self._replace_close_button()
         # Normaler Abschluss: Sichtbarkeit nach dem Qt-Signal nochmals anwenden.
         QTimer.singleShot(0, self._replace_close_button)
@@ -1549,7 +1684,7 @@ class MainWindow(QMainWindow):
         self.refresh_security_dashboard()
         self._qt_tray = QSystemTrayIcon(self)
         self._qt_tray.setIcon(QIcon.fromTheme("security-high", QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)))
-        self._qt_tray.setToolTip("LunaSecurity – Keine offenen Warnungen")
+        self._qt_tray.setToolTip(_ui_text("LunaSecurity – Keine offenen Warnungen"))
         if QSystemTrayIcon.isSystemTrayAvailable():
             self._qt_tray.show()
         self.module_worker = None
@@ -1765,7 +1900,7 @@ class MainWindow(QMainWindow):
 
         quarantine_tab = QWidget(); quarantine_layout = QVBoxLayout(quarantine_tab)
         self.quarantine_table = QTableWidget(0, 4)
-        self.quarantine_table.setHorizontalHeaderLabels(["Ursprünglicher Pfad", "SHA-256", "Quarantäne seit", "Interne Ablage"])
+        self.quarantine_table.setHorizontalHeaderLabels([_ui_text("Ursprünglicher Pfad"), "SHA-256", _ui_text("Quarantäne seit"), _ui_text("Interne Ablage")])
         self.quarantine_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.quarantine_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.quarantine_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -2239,6 +2374,10 @@ class MainWindow(QMainWindow):
                 idx = widget.findData(current)
                 if idx >= 0: widget.setCurrentIndex(idx)
                 widget.blockSignals(False)
+        if hasattr(self, "system_info_label"):
+            import platform
+            architecture_label = "Architecture" if language == "en" else "Architektur"
+            self.system_info_label.setText(f"System: Debian GNU/Linux\nKernel: {platform.release()}\n{architecture_label}: {platform.machine()}\nPython: {platform.python_version()}")
         if hasattr(self, "theme_combo"):
             self.theme_combo.setItemText(0, "Dark – Graphite" if language == "en" else "Dunkel – Graphit")
             self.theme_combo.setItemText(1, "Light – Luna" if language == "en" else "Hell – Luna")
@@ -2408,17 +2547,17 @@ class MainWindow(QMainWindow):
         if hasattr(self, "_qt_tray"):
             if status == "warning":
                 self._qt_tray.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning))
-                self._qt_tray.setToolTip("LunaSecurity – Sicherheitswarnung vorhanden")
+                self._qt_tray.setToolTip(_ui_text("LunaSecurity – Sicherheitswarnung vorhanden"))
             else:
                 self._qt_tray.setIcon(QIcon.fromTheme("security-high", QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)))
-                self._qt_tray.setToolTip("LunaSecurity – Keine offenen Warnungen")
+                self._qt_tray.setToolTip(_ui_text("LunaSecurity – Keine offenen Warnungen"))
         if self.tray:
             self.tray.set_status(status)
 
     def _start_tray(self):
         try:
-            self.tray=GtkStatusTray(lambda:self.bridge.show_window.emit(), lambda:self.bridge.quit_app.emit())
-            self.log.append("GTK-System-Tray gestartet (Gtk.StatusIcon, wie in LunaKalender 1.4.0).")
+            self.tray=GtkStatusTray(lambda:self.bridge.show_window.emit(), lambda:self.bridge.quit_app.emit(), language=APP_LANGUAGE)
+            self.log.append(_ui_text("GTK-System-Tray gestartet (Gtk.StatusIcon, wie in LunaKalender 1.4.0)."))
         except Exception as exc:
             self.log.append(f"System-Tray nicht verfügbar: {exc}")
 
@@ -2673,8 +2812,8 @@ class MainWindow(QMainWindow):
                 state=(result.stdout or result.stderr).strip() or "unbekannt"
             except Exception as exc: state=str(exc)
             checks.append(f"{label}: {state}")
-        self.advanced_output.setPlainText("SICHERHEITSSTATUS-DASHBOARD\n\n" + "\n".join(checks) +
-            "\n\nHinweis: Ein aktiver Dienst ist kein Nachweis für ein sauberes System. Starte bei Bedarf die jeweiligen Prüfungen.")
+        self.advanced_output.setPlainText(_ui_text("SICHERHEITSSTATUS-DASHBOARD") + "\n\n" + "\n".join(checks) +
+            "\n\n" + _ui_text("Hinweis: Ein aktiver Dienst ist kein Nachweis für ein sauberes System. Starte bei Bedarf die jeweiligen Prüfungen."))
 
     def _security_report_html(self):
         from datetime import datetime
@@ -2767,7 +2906,7 @@ class MainWindow(QMainWindow):
         if not api_key:
             QMessageBox.warning(self, "VirusTotal", "Bitte trage zuerst unter Einstellungen → VirusTotal – API deinen API-Schlüssel ein.")
             return
-        file_path, _ = QFileDialog.getOpenFileName(self, "Datei für VirusTotal auswählen", str(Path.home()), "Alle Dateien (*)")
+        file_path, _ = QFileDialog.getOpenFileName(self, _ui_text("Datei für VirusTotal auswählen"), str(Path.home()), _ui_text("Alle Dateien (*)"))
         if not file_path:
             return
         self._start_virustotal_worker(file_path, api_key, upload_unknown=False)
@@ -2915,7 +3054,7 @@ class MainWindow(QMainWindow):
         status_label = "Aktiv" if active else ("Aus" if success else "Status unklar")
         self.realtime_status.setText(_ui_text("Echtzeitschutz:") + " " + _ui_text(status_label))
         if hasattr(self, "realtime_title_label"):
-            self.realtime_title_label.setText("Echtzeitschutz: " + status_label)
+            self.realtime_title_label.setText(_ui_text("Echtzeitschutz:") + " " + _ui_text(status_label))
             state_color = "#42e987" if active and success else "#ff6978" if success else "#e0b45a"
             self.realtime_title_label.setStyleSheet("font-size:13pt;font-weight:700;color:" + state_color)
         if hasattr(self, "realtime_icon_label"):
@@ -3562,12 +3701,12 @@ class MainWindow(QMainWindow):
             size_limit_hits = monitor.size_limit_count
             elapsed = max(0, int(time.monotonic() - monitor.started))
         self.scan_shield.set_threat_detected(int(infected) > 0)
-        self.stat_threats.setText(f"✓  Bedrohungen\n{infected}")
-        self.stat_files.setText(f"▱  Geprüfte Dateien\n{scanned}")
-        self.stat_size_limit.setText(f"◉  Größenlimit\n{size_limit_hits}")
-        self.stat_unreadable.setText(f"⊘  Nicht lesbare\n{errors}")
-        self.stat_skipped.setText(f"↪  Übersprungen\n{skipped}")
-        self.stat_duration.setText(f"◷  Dauer\n{elapsed//3600:02d}:{(elapsed//60)%60:02d}:{elapsed%60:02d}")
+        self.stat_threats.setText(f"✓  {_ui_text('Bedrohungen')}\n{infected}")
+        self.stat_files.setText(f"▱  {_ui_text('Geprüfte Dateien')}\n{scanned}")
+        self.stat_size_limit.setText(f"◉  {_ui_text('Größenlimit')}\n{size_limit_hits}")
+        self.stat_unreadable.setText(f"⊘  {_ui_text('Nicht lesbare')}\n{errors}")
+        self.stat_skipped.setText(f"↪  {_ui_text('Übersprungen')}\n{skipped}")
+        self.stat_duration.setText(f"◷  {_ui_text('Dauer')}\n{elapsed//3600:02d}:{(elapsed//60)%60:02d}:{elapsed%60:02d}")
         for card in (self.stat_threats, self.stat_files, self.stat_size_limit, self.stat_unreadable, self.stat_skipped, self.stat_duration):
             card.update()
             card.repaint()
@@ -3755,7 +3894,7 @@ class MainWindow(QMainWindow):
     @Slot(str, str)
     def module_finished(self, title, result):
         self.progress.hide()
-        if title in ("Systemintegrität", "Lynis-Sicherheitsprüfung", "fail2ban-Überwachung", "Rootkit-Prüfung", "System-Audit"):
+        if title in ("Systemintegrität", "Lynis-Sicherheitsprüfung", "fail2ban-Überwachung", "Rootkit-Prüfung", "System-Audit", "YARA-Scan"):
             self.cancel_scan_button.setEnabled(False)
             self.cancel_scan_button.setText("Scan abbrechen")
         if title == "YARA-Regelaktualisierung":
@@ -3861,6 +4000,9 @@ class MainWindow(QMainWindow):
         try:
             result = subprocess.run([pkexec, str(helper)], capture_output=True, text=True, timeout=300)
             detail = (result.stdout + "\\n" + result.stderr).strip()
+            if APP_LANGUAGE == "en":
+                for de, en in (("YARA-Regeln erfolgreich aktualisiert", "YARA rules successfully updated"), ("Regelordner:", "Rules directory:"), ("Quelle und Lizenz:", "Source and license:"), ("Dateien", "files")):
+                    detail = detail.replace(de, en)
             if result.returncode != 0:
                 detail = detail or f"YARA-Regelaktualisierung fehlgeschlagen (Exit-Code {result.returncode})."
             return detail or "YARA-Regeln wurden aktualisiert."
@@ -3873,7 +4015,7 @@ class MainWindow(QMainWindow):
         path = _choose_directory(self, "Scan-Verzeichnis auswählen", Path.home())
         if path:
             self.yara_path.setText(path)
-            self.run_module("YARA-Scan", lambda: sec.yara_scan(path))
+            self.run_module("YARA-Scan", lambda worker: sec.yara_scan(path, worker.run_command), cancellable=True)
 
     def quarantine_selected(self):
         path, _ = _choose_file(self, "Datei für Quarantäne auswählen", Path.home())
@@ -3918,7 +4060,7 @@ def main():
     start_hidden = hidden_arg or window.settings.value("start_in_tray", False, type=bool)
     if start_hidden and window.tray:
         window.hide()
-        window.log.append("LunaSecurity wurde im System-Tray gestartet.")
+        window.log.append(_ui_text("LunaSecurity wurde im System-Tray gestartet."))
     else:
         window.show()
     app.aboutToQuit.connect(window.shutdown)

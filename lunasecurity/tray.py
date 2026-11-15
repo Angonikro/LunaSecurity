@@ -9,7 +9,8 @@ class GtkStatusTray:
     GTK signals are forwarded to the Qt main thread through supplied callbacks.
     Left click activates the main window; right click opens the GTK menu.
     """
-    def __init__(self, on_show, on_quit, on_error=None):
+    def __init__(self, on_show, on_quit, on_error=None, language="de"):
+        self.language = language
         self.on_show = on_show
         self.on_quit = on_quit
         self.on_error = on_error
@@ -43,11 +44,11 @@ class GtkStatusTray:
             icon.connect("activate", lambda *_: self.on_show())
 
             menu = Gtk.Menu()
-            show_item = Gtk.MenuItem(label="LunaSecurity anzeigen")
+            show_item = Gtk.MenuItem(label="Show LunaSecurity" if self.language == "en" else "LunaSecurity anzeigen")
             show_item.connect("activate", lambda *_: self.on_show())
             menu.append(show_item)
             menu.append(Gtk.SeparatorMenuItem())
-            quit_item = Gtk.MenuItem(label="LunaSecurity beenden")
+            quit_item = Gtk.MenuItem(label="Quit LunaSecurity" if self.language == "en" else "LunaSecurity beenden")
             quit_item.connect("activate", lambda *_: self.on_quit())
             menu.append(quit_item)
             menu.show_all()
@@ -72,7 +73,10 @@ class GtkStatusTray:
             def _update():
                 if self.icon:
                     self.icon.set_from_icon_name(name)
-                    tips = {"normal": "LunaSecurity – Keine offenen Warnungen", "warning": "LunaSecurity – Sicherheitswarnung vorhanden", "critical": "LunaSecurity – Kritische Bedrohung erkannt"}
+                    if self.language == "en":
+                        tips = {"normal": "LunaSecurity – No open warnings", "warning": "LunaSecurity – Security warning present", "critical": "LunaSecurity – Critical threat detected"}
+                    else:
+                        tips = {"normal": "LunaSecurity – Keine offenen Warnungen", "warning": "LunaSecurity – Sicherheitswarnung vorhanden", "critical": "LunaSecurity – Kritische Bedrohung erkannt"}
                     self.icon.set_tooltip_text(tips[self.status])
                 return False
             self.GLib.idle_add(_update)

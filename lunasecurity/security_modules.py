@@ -321,20 +321,24 @@ def firewall_guard_action(action, port=None, protocol=None):
     return output or 'Firewall-Aktion abgeschlossen.'
 
 
-def yara_scan(target):
+def yara_scan(target, command_runner=None):
     if not shutil.which('yara'):
-        return 'YARA ist nicht installiert. Installiere yara und hinterlege eigene/verifizierte Regeldateien.'
+        return 'YARA ist not installed. Install yara and provide trusted rule files.'
     rules_dir = Path('/etc/lunasecurity/yara-rules')
     rules = sorted(rules_dir.glob('*.yar')) + sorted(rules_dir.glob('*.yara'))
     if not rules:
-        return (f'Keine YARA-Regeln gefunden in {rules_dir}. '
-                'Bitte zuerst in LunaSecurity auf „YARA-Regeln aktualisieren“ klicken.')
-    output = [f'YARA-Regelsatz: {len(rules)} Regeldateien', f'Scan-Ziel: {target}', '']
+        return (f'No YARA rules found in {rules_dir}. '
+                'Please click "Update YARA rules" in LunaSecurity first.')
+    output = [f'YARA rule set: {len(rules)} rule files', f'Scan target: {target}', '']
+    runner = command_runner or run_command
     for rule in rules:
-        result = run_command(['yara', '-r', str(rule), str(target)], 3600)
+        result = runner(['yara', '-r', str(rule), str(target)], 3600)
         if result:
             output.append(f'[{rule.name}]\\n{result}')
-    output.append('YARA-Scan abgeschlossen. Treffer müssen anhand der Regelbeschreibung geprüft werden; sie sind nicht automatisch bestätigte Infektionen.')
+        if 'cancelled by user' in str(result).lower() or 'aborted by user' in str(result).lower():
+            output.append('YARA scan cancelled by user.')
+            return '\\n'.join(output)
+    output.append('YARA scan completed. Findings must be checked against the rule description; they are not automatically confirmed infections.')
     return '\\n'.join(output)
 
 

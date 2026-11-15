@@ -1,3 +1,11 @@
+## 0.4.37 – Englische Übersetzung vervollständigt
+
+- Fehlende englische Beschriftungen im Dashboard, Echtzeitschutz, Virensignaturbereich und in den Scan-Statistiken ergänzt.
+- Systeminformationen einschließlich Architekturbezeichnung sprachabhängig ausgegeben.
+- VirusTotal-Hinweise, Dateiauswahl, Upload-Abfragen, Ergebnisdialoge, Statusmeldungen und Schaltflächen für Englisch ergänzt.
+- Laufzeitmeldungen im Scan-Protokoll und dynamisch aktualisierte Zähler berücksichtigen die ausgewählte Sprache.
+- Keine Änderungen an Scan-Abläufen, Sicherheitsfunktionen, VirusTotal-Übertragung, Design oder Layout.
+
 ## 0.4.36
 
 - Bedrohung Erkennungsbereiche verbessert.
@@ -5,7 +13,7 @@
 - Der darüberliegende Scanbereich wird entsprechend kompakter; Fenstergröße und Dashboard-Breite bleiben unverändert.
 - VirusTotal-Dialogkorrekturen aus 0.4.35 bleiben enthalten.
 
-## 0.4.36 – VirusTotal-Dialoge übersichtlicher
+## 0.4.35 – VirusTotal-Dialoge übersichtlicher
 
 - Die Abfrage vor dem Upload einer unbekannten Datei zeigt Dateiname, Größe, SHA-256 und Speicherort getrennt an.
 - Das Prüfergebnis und der Upload-Status werden in übersichtlichen Abschnitten dargestellt.
