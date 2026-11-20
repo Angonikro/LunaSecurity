@@ -54,11 +54,11 @@ Version: $VERSION
 Section: utils
 Priority: optional
 Architecture: all
-Depends: python3, python3-pyside6.qtwidgets, python3-pyside6.qtprintsupport, python3-gi, gir1.2-gtk-3.0, clamav, clamav-daemon, clamav-freshclam, rkhunter, chkrootkit, pkexec, polkitd, aide, yara, nftables, iproute2, auditd, lynis, fail2ban
+Depends: python3, python3-pyside6.qtwidgets, python3-pyside6.qtprintsupport, clamav, clamav-daemon, clamav-freshclam, rkhunter, chkrootkit, pkexec, polkitd, aide, yara, nftables, iproute2, auditd, lynis, fail2ban
 Recommends: mate-polkit
 Maintainer: LunaSecurity Project <maintainer@example.invalid>
-Description: Linux Security Suite mit Qt-Oberfläche und GTK-System-Tray
- Qt-/GTK-Tray-Sicherheitsanwendung mit ClamAV und optionalen Rootkit-Prüfwerkzeugen.
+Description: Linux Security Suite mit nativer Qt-Oberfläche und Qt-System-Tray
+ Qt-Tray-Sicherheitsanwendung mit ClamAV und optionalen Rootkit-Prüfwerkzeugen.
 CONTROL
 chmod 0644 "$BUILD/DEBIAN/control"
 chmod 0755 "$BUILD/DEBIAN"

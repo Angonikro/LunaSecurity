@@ -89,7 +89,7 @@ def _choose_directory(parent, title, start_dir):
     return ""
 
 from . import __version__
-from .tray import GtkStatusTray
+from .tray import QtStatusTray
 from . import security_modules as sec
 
 
@@ -283,7 +283,7 @@ EN_TRANSLATIONS.update({
     "Übersprungen": "Skipped",
     "Dauer": "Duration",
     "Prüft wichtige Systembereiche auf Bedrohungen.": "Checks important system areas for threats.",
-    "GTK-System-Tray gestartet (Gtk.StatusIcon, wie in LunaKalender 1.4.0).": "GTK system tray started (Gtk.StatusIcon, as in LunaKalender 1.4.0).",
+    "Qt-System-Tray gestartet (QSystemTrayIcon).": "Qt system tray started (QSystemTrayIcon).",
     "LunaSecurity wurde im System-Tray gestartet.": "LunaSecurity was started in the system tray.",
 })
 
@@ -1682,11 +1682,6 @@ class MainWindow(QMainWindow):
         APP_LANGUAGE = self.settings.value("language", "de")
         self._build_ui()
         self.refresh_security_dashboard()
-        self._qt_tray = QSystemTrayIcon(self)
-        self._qt_tray.setIcon(QIcon.fromTheme("security-high", QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)))
-        self._qt_tray.setToolTip(_ui_text("LunaSecurity – Keine offenen Warnungen"))
-        if QSystemTrayIcon.isSystemTrayAvailable():
-            self._qt_tray.show()
         self.module_worker = None
         self.package_verify_worker = None
         self.package_verify_started = 0.0
@@ -2544,20 +2539,17 @@ class MainWindow(QMainWindow):
         """Zeigt das neutrale Tray-Symbol nur bei gespeicherten Funden als Warnung."""
         events = self._read_security_events()
         status = "warning" if events else "normal"
-        if hasattr(self, "_qt_tray"):
-            if status == "warning":
-                self._qt_tray.setIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning))
-                self._qt_tray.setToolTip(_ui_text("LunaSecurity – Sicherheitswarnung vorhanden"))
-            else:
-                self._qt_tray.setIcon(QIcon.fromTheme("security-high", QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)))
-                self._qt_tray.setToolTip(_ui_text("LunaSecurity – Keine offenen Warnungen"))
         if self.tray:
             self.tray.set_status(status)
 
     def _start_tray(self):
         try:
-            self.tray=GtkStatusTray(lambda:self.bridge.show_window.emit(), lambda:self.bridge.quit_app.emit(), language=APP_LANGUAGE)
-            self.log.append(_ui_text("GTK-System-Tray gestartet (Gtk.StatusIcon, wie in LunaKalender 1.4.0)."))
+            self.tray=QtStatusTray(
+                lambda: self.bridge.show_window.emit(),
+                lambda: self.bridge.quit_app.emit(),
+                language=APP_LANGUAGE,
+            )
+            self.log.append(_ui_text("Qt-System-Tray gestartet (QSystemTrayIcon)."))
         except Exception as exc:
             self.log.append(f"System-Tray nicht verfügbar: {exc}")
 
@@ -2569,8 +2561,6 @@ class MainWindow(QMainWindow):
         self._quitting = True
         if hasattr(self, "_realtime_log_timer"):
             self._realtime_log_timer.stop()
-        if hasattr(self, "_qt_tray"):
-            self._qt_tray.hide()
         if self.tray:
             tray, self.tray = self.tray, None
             tray.stop()
@@ -3182,8 +3172,8 @@ class MainWindow(QMainWindow):
                     for found_path in realtime_paths:
                         self.log.append(f"Datei: {found_path}")
                 self.show_realtime_detection_window(str(output))
-            if hasattr(self, "_qt_tray") and self._qt_tray.isVisible():
-                self._qt_tray.showMessage("LunaSecurity – Bedrohung erkannt", f"{added} Fund/Funde: {source}", QSystemTrayIcon.MessageIcon.Warning, 10000)
+            if self.tray and self.tray.isVisible():
+                self.tray.showMessage("LunaSecurity – Bedrohung erkannt", f"{added} Fund/Funde: {source}", QSystemTrayIcon.MessageIcon.Warning, 10000)
             if hasattr(self, "sound_enabled") and self.sound_enabled.isChecked():
                 self.play_alarm()
         self.load_security_events()
@@ -3198,8 +3188,7 @@ class MainWindow(QMainWindow):
 
     def load_security_events(self):
         events = self._read_security_events()
-        if hasattr(self, "_qt_tray"):
-            self._sync_tray_status()
+        self._sync_tray_status()
         self.events_view.clear()
         for item in events:
             detail = str(item.get("detail", ""))
@@ -4028,8 +4017,6 @@ class MainWindow(QMainWindow):
             except Exception as exc: QMessageBox.critical(self, "Quarantäne fehlgeschlagen", str(exc))
 
     def shutdown(self):
-        if hasattr(self, "_qt_tray"):
-            self._qt_tray.hide()
         if self.tray:
             tray, self.tray = self.tray, None
             tray.stop()

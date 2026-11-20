@@ -1,3 +1,8 @@
+## 0.4.38 – Qt-System-Tray als neue Version
+- Qt-System-Tray statt GTK-StatusIcon; GTK-Tray-Abhängigkeiten aus dem DEB-Paket entfernt.
+- GTK-StatusIcon durch ein natives Qt-QSystemTrayIcon mit Statussymbolen und Tray-Menü ersetzt.
+- Doppelte Tray-Implementierung entfernt; das System-Tray wird ausschließlich über Qt verwaltet.
+
 ## 0.4.37 – Englische Übersetzung vervollständigt
 
 - Fehlende englische Beschriftungen im Dashboard, Echtzeitschutz, Virensignaturbereich und in den Scan-Statistiken ergänzt.
